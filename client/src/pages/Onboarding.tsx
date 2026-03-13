@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useAudio } from "@/hooks/useAudio";
 
 const AVATARS = [
   { id: "cat", emoji: "🐱", label: "Cool Cat" },
@@ -41,10 +42,19 @@ export default function Onboarding() {
   const [selectedInstrument, setSelectedInstrument] = useState("piano");
   const [playedNotes, setPlayedNotes] = useState<string[]>([]);
   const [, navigate] = useLocation();
+  const { playNote, playCelebration } = useAudio();
 
   const handleNotePlay = (note: string) => {
+    // Play the actual audio note
+    const noteKey = FIRST_MELODY.find((n) => n.note === note)?.key || note;
+    playNote(noteKey, 1.0);
     if (!playedNotes.includes(note)) {
-      setPlayedNotes([...playedNotes, note]);
+      const newPlayed = [...playedNotes, note];
+      setPlayedNotes(newPlayed);
+      // If all 3 notes played, fire celebration
+      if (newPlayed.length === FIRST_MELODY.length) {
+        setTimeout(() => playCelebration(), 200);
+      }
     }
   };
 

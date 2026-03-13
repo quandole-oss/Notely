@@ -3,10 +3,12 @@
  * Design: Sunny Studio — Bauhaus playful modernism
  * Interactive piano keyboard + rhythm tap game + free play mode
  * Real-time visual feedback, note names shown, encouraging atmosphere
+ * Audio: Web Audio API via useAudio hook — real piano synthesis on every key tap
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
+import { useAudio } from "@/hooks/useAudio";
 
 const WHITE_KEYS = [
   { note: "C", label: "DO", color: "#FFB800" },
@@ -35,16 +37,22 @@ const SONGS = [
 
 export default function Practice() {
   const [, navigate] = useLocation();
+  const { playNote, playDrumTap, playSuccessChime, playCelebration } = useAudio();
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [playedHistory, setPlayedHistory] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"piano" | "rhythm" | "songs">("piano");
   const [selectedSong, setSelectedSong] = useState(0);
   const [songProgress, setSongProgress] = useState(0);
-  const [rhythmActive, setRhythmActive] = useState(false);
   const [rhythmScore, setRhythmScore] = useState(0);
   const [lastTapFeedback, setLastTapFeedback] = useState<"great" | "good" | "miss" | null>(null);
+  const [beatIndex, setBeatIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const beatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleKeyPress = useCallback((note: string) => {
+    // Play the actual audio note
+    playNote(note, 1.2);
+
     setActiveKey(note);
     setPlayedHistory((prev) => [...prev.slice(-7), note]);
     setTimeout(() => setActiveKey(null), 300);
@@ -53,25 +61,59 @@ export default function Practice() {
     if (activeTab === "songs") {
       const song = SONGS[selectedSong];
       const expectedNote = song.notes[songProgress];
-      if (note === expectedNote || (note === "C2" && expectedNote === "C")) {
+      const normalizedNote = note === "C2" ? "C" : note;
+      if (normalizedNote === expectedNote) {
         setSongProgress((prev) => {
           const next = prev + 1;
           if (next >= song.notes.length) {
-            setTimeout(() => setSongProgress(0), 1500);
-            return song.notes.length; // completed
+            // Song complete!
+            setTimeout(() => playCelebration(), 100);
+            setTimeout(() => setSongProgress(0), 3000);
+            return song.notes.length;
           }
           return next;
         });
       }
     }
-  }, [activeTab, selectedSong, songProgress]);
+  }, [activeTab, selectedSong, songProgress, playNote, playCelebration]);
 
   const handleRhythmTap = () => {
     const feedbacks: ("great" | "good" | "miss")[] = ["great", "good", "great", "good", "miss"];
     const fb = feedbacks[Math.floor(Math.random() * feedbacks.length)];
     setLastTapFeedback(fb);
+
+    // Play drum sound based on feedback quality
+    if (fb === "great") {
+      playDrumTap("kick");
+      setTimeout(() => playDrumTap("hihat"), 50);
+    } else if (fb === "good") {
+      playDrumTap("kick");
+    } else {
+      playDrumTap("snare");
+    }
+
     if (fb !== "miss") setRhythmScore((s) => s + (fb === "great" ? 10 : 5));
     setTimeout(() => setLastTapFeedback(null), 600);
+  };
+
+  const toggleMetronome = () => {
+    if (isPlaying) {
+      if (beatIntervalRef.current) clearInterval(beatIntervalRef.current);
+      setIsPlaying(false);
+      setBeatIndex(0);
+    } else {
+      setIsPlaying(true);
+      let beat = 0;
+      beatIntervalRef.current = setInterval(() => {
+        setBeatIndex(beat % 4);
+        if (beat % 4 === 0) {
+          playDrumTap("kick");
+        } else {
+          playDrumTap("hihat");
+        }
+        beat++;
+      }, 500); // 120 BPM
+    }
   };
 
   const song = SONGS[selectedSong];
@@ -154,13 +196,15 @@ export default function Practice() {
                       key={key.note}
                       onMouseDown={() => handleKeyPress(key.note)}
                       onTouchStart={(e) => { e.preventDefault(); handleKeyPress(key.note); }}
-                      className="piano-key-white flex flex-col items-center justify-end pb-2"
+                      className="piano-key-white flex flex-col items-center justify-end pb-2 select-none"
                       style={{
                         width: "3.2rem",
                         height: "9rem",
                         background: activeKey === key.note ? key.color : "white",
                         borderColor: activeKey === key.note ? key.color : "#E5DDD0",
                         color: activeKey === key.note ? "white" : "#999",
+                        transform: activeKey === key.note ? "translateY(3px)" : "translateY(0)",
+                        transition: "all 0.08s ease",
                       }}
                     >
                       <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>
@@ -174,7 +218,7 @@ export default function Practice() {
                 </div>
               </div>
               <p className="text-center text-sm text-gray-400 mt-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                Tap or click the keys to play notes!
+                Tap or click the keys to play notes! 🎵
               </p>
             </div>
 
@@ -201,21 +245,35 @@ export default function Practice() {
                 🥁 Tap the Beat!
               </h3>
               <p className="text-gray-500 mb-4 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                Tap the big button when you see the beat marker light up!
+                Tap the big drum button in time with the beat!
               </p>
 
               {/* Beat visualizer */}
-              <div className="flex justify-center gap-3 mb-6">
+              <div className="flex justify-center gap-3 mb-4">
                 {[0, 1, 2, 3].map((beat) => (
                   <div
                     key={beat}
-                    className="w-10 h-10 rounded-full transition-all duration-150"
+                    className="w-10 h-10 rounded-full transition-all duration-100"
                     style={{
-                      background: rhythmActive && beat === (Math.floor(Date.now() / 500) % 4) ? "#FFB800" : "#E5DDD0",
+                      background: isPlaying && beat === beatIndex ? "#FFB800" : "#E5DDD0",
+                      transform: isPlaying && beat === beatIndex ? "scale(1.2)" : "scale(1)",
                     }}
                   />
                 ))}
               </div>
+
+              {/* Metronome toggle */}
+              <button
+                onClick={toggleMetronome}
+                className="btn-notely px-6 py-2 text-sm mb-5"
+                style={{
+                  background: isPlaying ? "#FF5C35" : "#4AABF5",
+                  color: "white",
+                  fontFamily: "'Baloo 2', cursive",
+                }}
+              >
+                {isPlaying ? "⏹ Stop Beat" : "▶ Start Beat"}
+              </button>
 
               {/* Score */}
               <div className="flex justify-center gap-6 mb-6">
@@ -231,7 +289,7 @@ export default function Practice() {
               <button
                 onMouseDown={handleRhythmTap}
                 onTouchStart={(e) => { e.preventDefault(); handleRhythmTap(); }}
-                className="w-36 h-36 rounded-full text-5xl shadow-xl transition-all duration-100 mx-auto flex items-center justify-center"
+                className="w-36 h-36 rounded-full text-5xl shadow-xl transition-all duration-100 mx-auto flex items-center justify-center select-none"
                 style={{
                   background: lastTapFeedback === "great" ? "#3ECFA4" :
                                lastTapFeedback === "good" ? "#FFB800" :
@@ -295,7 +353,7 @@ export default function Practice() {
                   </h3>
                   <p className="text-sm text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                     Play the notes in order!
-  </p>
+                  </p>
                 </div>
               </div>
 
@@ -312,7 +370,7 @@ export default function Practice() {
                       color:
                         idx < songProgress ? "white" :
                         idx === songProgress ? "#1A1A2E" : "#999",
-                      transform: idx === songProgress ? "scale(1.2)" : "scale(1)",
+                      transform: idx === songProgress && !songComplete ? "scale(1.2)" : "scale(1)",
                       fontFamily: "'Baloo 2', cursive",
                     }}
                   >
@@ -344,30 +402,34 @@ export default function Practice() {
             {/* Piano for song play */}
             <div className="card-notely p-4">
               <div className="flex justify-center gap-1">
-                {WHITE_KEYS.map((key) => (
-                  <button
-                    key={key.note}
-                    onMouseDown={() => handleKeyPress(key.note)}
-                    onTouchStart={(e) => { e.preventDefault(); handleKeyPress(key.note); }}
-                    className="piano-key-white flex flex-col items-center justify-end pb-2"
-                    style={{
-                      width: "2.8rem",
-                      height: "8rem",
-                      background:
-                        activeKey === key.note ? key.color :
-                        (song.notes[songProgress] === key.note.replace("2","") || song.notes[songProgress] === key.note) && !songComplete
-                          ? `${key.color}33` : "white",
-                      borderColor:
-                        (song.notes[songProgress] === key.note.replace("2","") || song.notes[songProgress] === key.note) && !songComplete
-                          ? key.color : "#E5DDD0",
-                      color: activeKey === key.note ? "white" : "#999",
-                    }}
-                  >
-                    <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>
-                      {key.note.replace("2", "")}
-                    </span>
-                  </button>
-                ))}
+                {WHITE_KEYS.map((key) => {
+                  const normalizedNote = key.note === "C2" ? "C" : key.note;
+                  const isNextNote = song.notes[songProgress] === normalizedNote && !songComplete;
+                  return (
+                    <button
+                      key={key.note}
+                      onMouseDown={() => handleKeyPress(key.note)}
+                      onTouchStart={(e) => { e.preventDefault(); handleKeyPress(key.note); }}
+                      className="piano-key-white flex flex-col items-center justify-end pb-2 select-none"
+                      style={{
+                        width: "2.8rem",
+                        height: "8rem",
+                        background:
+                          activeKey === key.note ? key.color :
+                          isNextNote ? `${key.color}44` : "white",
+                        borderColor: isNextNote ? key.color : "#E5DDD0",
+                        color: activeKey === key.note ? "white" : "#999",
+                        transform: activeKey === key.note ? "translateY(3px)" : isNextNote ? "translateY(-2px)" : "translateY(0)",
+                        transition: "all 0.08s ease",
+                        boxShadow: isNextNote ? `0 0 12px ${key.color}88` : undefined,
+                      }}
+                    >
+                      <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                        {key.note.replace("2", "")}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

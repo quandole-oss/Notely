@@ -4,10 +4,12 @@
  * Full-screen immersive lesson: video area (top 55%) + interactive exercise (bottom 45%)
  * Progress dots, animated feedback, step-by-step structure
  * Immediate positive reinforcement on every correct action
+ * Audio: Web Audio API — real note playback on every tap
  */
 
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useAudio } from "@/hooks/useAudio";
 
 interface LessonStep {
   type: "watch" | "listen" | "play" | "quiz";
@@ -68,6 +70,7 @@ const LESSON_STEPS: LessonStep[] = [
 
 export default function Lesson() {
   const [, navigate] = useLocation();
+  const { playNote, playSuccessChime, playErrorSound, playCelebration } = useAudio();
   const [currentStep, setCurrentStep] = useState(0);
   const [playedNotes, setPlayedNotes] = useState<number[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -78,12 +81,25 @@ export default function Lesson() {
   const step = LESSON_STEPS[currentStep];
   const isLastStep = currentStep === LESSON_STEPS.length - 1;
 
+  // Play a preview of the notes in the listen step
+  const handleListenPreview = () => {
+    const notes = ["C4", "E4", "G4"];
+    notes.forEach((note, i) => {
+      setTimeout(() => playNote(note, 0.8), i * 350);
+    });
+  };
+
   const handleNotePlay = (idx: number) => {
-    if (!playedNotes.includes(idx)) {
+    if (!playedNotes.includes(idx) && step.notes) {
+      // Play the actual note audio
+      playNote(step.notes[idx].note, 1.0);
+
       const newPlayed = [...playedNotes, idx];
       setPlayedNotes(newPlayed);
-      if (step.notes && newPlayed.length === step.notes.length) {
+      if (newPlayed.length === step.notes.length) {
+        // All notes played — success!
         setTimeout(() => {
+          playSuccessChime();
           setShowFeedback(true);
           setFeedbackCorrect(true);
         }, 300);
@@ -92,10 +108,16 @@ export default function Lesson() {
   };
 
   const handleOptionSelect = (idx: number) => {
+    if (showFeedback) return;
     setSelectedOption(idx);
     const correct = step.options?.[idx]?.correct ?? false;
     setFeedbackCorrect(correct);
     setShowFeedback(true);
+    if (correct) {
+      playSuccessChime();
+    } else {
+      playErrorSound();
+    }
   };
 
   const handleNext = () => {
@@ -103,6 +125,7 @@ export default function Lesson() {
     setSelectedOption(null);
     setPlayedNotes([]);
     if (isLastStep) {
+      playCelebration();
       setLessonComplete(true);
     } else {
       setCurrentStep(currentStep + 1);
@@ -220,8 +243,9 @@ export default function Lesson() {
           <div className="animate-slide-up">
             {/* Lesson visual */}
             <div
-              className="rounded-3xl overflow-hidden mb-5 relative"
+              className="rounded-3xl overflow-hidden mb-5 relative cursor-pointer"
               style={{ height: "200px" }}
+              onClick={step.type === "listen" ? handleListenPreview : undefined}
             >
               <img
                 src="https://d2xsxph8kpxj0f.cloudfront.net/310519663422386160/FwxdRn7gyJEfzV8667mpvP/lesson-bg-Cen66WZRxYbX8NVgUd7ZgM.webp"
@@ -230,12 +254,20 @@ export default function Lesson() {
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-xl"
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-xl transition-transform hover:scale-110"
                   style={{ background: "rgba(255,255,255,0.95)" }}
                 >
                   {step.type === "watch" ? "▶️" : "🔊"}
                 </div>
               </div>
+              {step.type === "listen" && (
+                <div
+                  className="absolute bottom-3 left-0 right-0 text-center text-sm font-medium"
+                  style={{ color: "rgba(255,255,255,0.9)", fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  Tap to hear C major chord 🎵
+                </div>
+              )}
             </div>
 
             {/* Content card */}
@@ -268,7 +300,7 @@ export default function Lesson() {
                   <button
                     key={`${note.note}-${idx}`}
                     onClick={() => handleNotePlay(idx)}
-                    className="flex flex-col items-center justify-center rounded-3xl transition-all duration-200 shadow-lg"
+                    className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
                     style={{
                       width: "4.5rem",
                       height: "7rem",
@@ -327,9 +359,9 @@ export default function Lesson() {
               return (
                 <button
                   key={idx}
-                  onClick={() => !showFeedback && handleOptionSelect(idx)}
+                  onClick={() => handleOptionSelect(idx)}
                   disabled={showFeedback}
-                  className="card-notely p-4 flex flex-col items-center gap-2 text-center"
+                  className="card-notely p-4 flex flex-col items-center gap-2 text-center select-none"
                   style={{
                     background: bg,
                     border: `3px solid ${border}`,
