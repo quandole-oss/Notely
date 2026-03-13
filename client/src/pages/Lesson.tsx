@@ -1,13 +1,15 @@
 /*
  * NOTELY — LESSON PLAYER PAGE
  * Design: Sunny Studio — Bauhaus playful modernism
- * Full-screen immersive lesson: video area (top 55%) + interactive exercise (bottom 45%)
+ * Full-screen immersive lesson: video area + interactive exercise
  * Progress dots, animated feedback, step-by-step structure
  * Immediate positive reinforcement on every correct action
  * Audio: Web Audio API — real note playback on every tap
+ * NEW: "Listen First" demo button on play steps — plays all notes in sequence
+ * NEW: Keyboard support — A=C, S=D, D=E, F=F, G=G, H=A, J=B
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAudio } from "@/hooks/useAudio";
 
@@ -68,6 +70,11 @@ const LESSON_STEPS: LessonStep[] = [
   },
 ];
 
+// Keyboard mapping: physical key → note name
+const KEY_TO_NOTE: Record<string, string> = {
+  a: "C", s: "D", d: "E", f: "F", g: "G", h: "A", j: "B",
+};
+
 export default function Lesson() {
   const [, navigate] = useLocation();
   const { playNote, playSuccessChime, playErrorSound, playCelebration } = useAudio();
@@ -77,11 +84,46 @@ export default function Lesson() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
   const [lessonComplete, setLessonComplete] = useState(false);
+  const [isDemoPlaying, setIsDemoPlaying] = useState(false);
+  const [demoNoteIdx, setDemoNoteIdx] = useState<number | null>(null);
+  const [activeKeyboardNote, setActiveKeyboardNote] = useState<string | null>(null);
+  const demoTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const step = LESSON_STEPS[currentStep];
   const isLastStep = currentStep === LESSON_STEPS.length - 1;
 
-  // Play a preview of the notes in the listen step
+  // ─── Listen First: play all notes in sequence ───────────────────────────────
+  const handleListenDemo = () => {
+    if (!step.notes || isDemoPlaying) return;
+    setIsDemoPlaying(true);
+    setPlayedNotes([]); // reset so student starts fresh after demo
+
+    // Clear any existing timeouts
+    demoTimeoutsRef.current.forEach(clearTimeout);
+    demoTimeoutsRef.current = [];
+
+    const GAP = 600; // ms between notes
+    step.notes.forEach((note, idx) => {
+      const t1 = setTimeout(() => {
+        setDemoNoteIdx(idx);
+        playNote(note.note, 0.7);
+      }, idx * GAP);
+      const t2 = setTimeout(() => {
+        setDemoNoteIdx(null);
+      }, idx * GAP + 400);
+      demoTimeoutsRef.current.push(t1, t2);
+    });
+
+    // After all notes, clear demo state
+    const total = step.notes.length * GAP + 400;
+    const tEnd = setTimeout(() => {
+      setIsDemoPlaying(false);
+      setDemoNoteIdx(null);
+    }, total);
+    demoTimeoutsRef.current.push(tEnd);
+  };
+
+  // ─── Listen step preview ────────────────────────────────────────────────────
   const handleListenPreview = () => {
     const notes = ["C4", "E4", "G4"];
     notes.forEach((note, i) => {
@@ -89,15 +131,14 @@ export default function Lesson() {
     });
   };
 
+  // ─── Note tap handler ────────────────────────────────────────────────────────
   const handleNotePlay = (idx: number) => {
+    if (isDemoPlaying) return; // don't allow tapping during demo
     if (!playedNotes.includes(idx) && step.notes) {
-      // Play the actual note audio
       playNote(step.notes[idx].note, 1.0);
-
       const newPlayed = [...playedNotes, idx];
       setPlayedNotes(newPlayed);
       if (newPlayed.length === step.notes.length) {
-        // All notes played — success!
         setTimeout(() => {
           playSuccessChime();
           setShowFeedback(true);
@@ -107,20 +148,67 @@ export default function Lesson() {
     }
   };
 
+  // ─── Keyboard support ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (step.type !== "play" || !step.notes) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const note = KEY_TO_NOTE[e.key.toLowerCase()];
+      if (!note) return;
+
+      // Visual flash on key
+      setActiveKeyboardNote(note);
+      playNote(note, 1.0);
+
+      // Find the first unplayed note in the sequence that matches
+      if (step.notes) {
+        const nextIdx = step.notes.findIndex(
+          (n, i) => n.note === note && !playedNotes.includes(i)
+        );
+        if (nextIdx !== -1) {
+          const newPlayed = [...playedNotes, nextIdx];
+          setPlayedNotes(newPlayed);
+          if (newPlayed.length === step.notes.length) {
+            setTimeout(() => {
+              playSuccessChime();
+              setShowFeedback(true);
+              setFeedbackCorrect(true);
+            }, 300);
+          }
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const note = KEY_TO_NOTE[e.key.toLowerCase()];
+      if (note) setActiveKeyboardNote(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime]);
+
+  // ─── Quiz handler ────────────────────────────────────────────────────────────
   const handleOptionSelect = (idx: number) => {
     if (showFeedback) return;
     setSelectedOption(idx);
     const correct = step.options?.[idx]?.correct ?? false;
     setFeedbackCorrect(correct);
     setShowFeedback(true);
-    if (correct) {
-      playSuccessChime();
-    } else {
-      playErrorSound();
-    }
+    if (correct) playSuccessChime();
+    else playErrorSound();
   };
 
+  // ─── Next step ───────────────────────────────────────────────────────────────
   const handleNext = () => {
+    demoTimeoutsRef.current.forEach(clearTimeout);
+    setIsDemoPlaying(false);
+    setDemoNoteIdx(null);
     setShowFeedback(false);
     setSelectedOption(null);
     setPlayedNotes([]);
@@ -138,6 +226,7 @@ export default function Lesson() {
     (step.type === "play" && step.notes && playedNotes.length === step.notes.length) ||
     (step.type === "quiz" && selectedOption !== null);
 
+  // ─── Lesson complete screen ──────────────────────────────────────────────────
   if (lessonComplete) {
     return (
       <div className="min-h-screen bg-[#FEFAF3] flex flex-col items-center justify-center px-6 text-center">
@@ -148,14 +237,9 @@ export default function Lesson() {
         <p className="text-xl text-gray-600 mb-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
           You're a music star! You earned 3 stars! ⭐⭐⭐
         </p>
-        {/* Stars */}
         <div className="flex gap-4 mb-8">
           {[1, 2, 3].map((s) => (
-            <div
-              key={s}
-              className="text-5xl animate-pop"
-              style={{ animationDelay: `${s * 0.2}s` }}
-            >
+            <div key={s} className="text-5xl animate-pop" style={{ animationDelay: `${s * 0.2}s` }}>
               ⭐
             </div>
           ))}
@@ -241,7 +325,6 @@ export default function Lesson() {
         {/* Watch/Listen content */}
         {(step.type === "watch" || step.type === "listen") && (
           <div className="animate-slide-up">
-            {/* Lesson visual */}
             <div
               className="rounded-3xl overflow-hidden mb-5 relative cursor-pointer"
               style={{ height: "200px" }}
@@ -269,15 +352,11 @@ export default function Lesson() {
                 </div>
               )}
             </div>
-
-            {/* Content card */}
             <div className="card-notely p-5 mb-4">
               <p className="text-base text-gray-700 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {step.content}
               </p>
             </div>
-
-            {/* Fun fact */}
             <div
               className="rounded-2xl p-4 flex items-start gap-3"
               style={{ background: "#FFF8E1", border: "2px solid #FFB800" }}
@@ -293,22 +372,48 @@ export default function Lesson() {
         {/* Play exercise */}
         {step.type === "play" && step.notes && (
           <div className="animate-slide-up">
-            <div className="flex justify-center gap-3 mb-6">
+
+            {/* ── Listen First button ── */}
+            <div className="flex justify-center mb-5">
+              <button
+                onClick={handleListenDemo}
+                disabled={isDemoPlaying}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                style={{
+                  background: isDemoPlaying ? "#E5DDD0" : "#4AABF5",
+                  color: isDemoPlaying ? "#999" : "white",
+                  fontFamily: "'Baloo 2', cursive",
+                  boxShadow: isDemoPlaying ? "none" : "0 4px 0 rgba(74,171,245,0.4)",
+                  transform: isDemoPlaying ? "translateY(2px)" : "translateY(0)",
+                }}
+              >
+                <span className="text-lg">{isDemoPlaying ? "🎵" : "👂"}</span>
+                {isDemoPlaying ? "Listening…" : "Listen First"}
+              </button>
+            </div>
+
+            {/* Note buttons */}
+            <div className="flex justify-center gap-3 mb-6 flex-wrap">
               {step.notes.map((note, idx) => {
                 const played = playedNotes.includes(idx);
+                const isDemo = demoNoteIdx === idx;
+                const isKeyboardActive = activeKeyboardNote === note.note;
+                const isHighlighted = isDemo || isKeyboardActive;
                 return (
                   <button
                     key={`${note.note}-${idx}`}
                     onClick={() => handleNotePlay(idx)}
+                    disabled={isDemoPlaying}
                     className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
                     style={{
                       width: "4.5rem",
                       height: "7rem",
-                      background: played ? note.color : "white",
+                      background: played ? note.color : isHighlighted ? note.color : "white",
                       border: `4px solid ${note.color}`,
-                      color: played ? "white" : note.color,
-                      transform: played ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
-                      boxShadow: played ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                      color: played || isHighlighted ? "white" : note.color,
+                      transform: played || isHighlighted ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                      boxShadow: played ? `0 2px 0 ${note.color}88` : isHighlighted ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                      opacity: isDemoPlaying && !isDemo ? 0.5 : 1,
                     }}
                   >
                     <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>
@@ -323,7 +428,7 @@ export default function Lesson() {
             </div>
 
             {/* Progress dots */}
-            <div className="flex justify-center gap-2 mb-4">
+            <div className="flex justify-center gap-2 mb-3">
               {step.notes.map((_, idx) => (
                 <div
                   key={idx}
@@ -338,9 +443,31 @@ export default function Lesson() {
               ))}
             </div>
 
-            <p className="text-center text-sm text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-              {playedNotes.length} / {step.notes.length} notes played
+            <p className="text-center text-sm text-gray-500 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              {isDemoPlaying ? "Listen carefully…" : `${playedNotes.length} / ${step.notes.length} notes played`}
             </p>
+
+            {/* ── Keyboard hint ── */}
+            <div
+              className="rounded-2xl p-3 flex items-center gap-3"
+              style={{ background: "#F0F7FF", border: "2px solid #4AABF5" }}
+            >
+              <span className="text-xl">⌨️</span>
+              <div>
+                <p className="text-xs font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                  Keyboard shortcut
+                </p>
+                <p className="text-xs text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  Press <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">A</kbd>=DO &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">S</kbd>=RE &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">D</kbd>=MI &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">F</kbd>=FA &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">G</kbd>=SOL &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">H</kbd>=LA &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">J</kbd>=SI
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -355,7 +482,6 @@ export default function Lesson() {
               if (isSelected && isCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
               else if (isSelected && !isCorrect) { bg = "#FF5C35"; border = "#FF5C35"; }
               else if (showFeedback && isCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
-
               return (
                 <button
                   key={idx}
@@ -378,7 +504,7 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Feedback overlay */}
+        {/* Feedback */}
         {showFeedback && (
           <div
             className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop"

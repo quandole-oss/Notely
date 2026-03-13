@@ -6,9 +6,14 @@
  * Audio: Web Audio API via useAudio hook — real piano synthesis on every key tap
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAudio } from "@/hooks/useAudio";
+
+// Keyboard mapping: physical key → note name (A=C, S=D, D=E, F=F, G=G, H=A, J=B)
+const KEY_TO_NOTE: Record<string, string> = {
+  a: "C", s: "D", d: "E", f: "F", g: "G", h: "A", j: "B",
+};
 
 const WHITE_KEYS = [
   { note: "C", label: "DO", color: "#FFB800" },
@@ -48,6 +53,7 @@ export default function Practice() {
   const [beatIndex, setBeatIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const beatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [activeKeyboardNote, setActiveKeyboardNote] = useState<string | null>(null);
 
   const handleKeyPress = useCallback((note: string) => {
     // Play the actual audio note
@@ -118,6 +124,27 @@ export default function Practice() {
 
   const song = SONGS[selectedSong];
   const songComplete = songProgress >= song.notes.length;
+
+  // ── Keyboard support ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const note = KEY_TO_NOTE[e.key.toLowerCase()];
+      if (!note) return;
+      setActiveKeyboardNote(note);
+      handleKeyPress(note);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const note = KEY_TO_NOTE[e.key.toLowerCase()];
+      if (note) setActiveKeyboardNote(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [handleKeyPress]);
 
   return (
     <div className="min-h-screen bg-[#FEFAF3]">
@@ -191,35 +218,52 @@ export default function Practice() {
               <div className="relative flex justify-center">
                 {/* White keys */}
                 <div className="flex gap-1">
-                  {WHITE_KEYS.map((key) => (
-                    <button
-                      key={key.note}
-                      onMouseDown={() => handleKeyPress(key.note)}
-                      onTouchStart={(e) => { e.preventDefault(); handleKeyPress(key.note); }}
-                      className="piano-key-white flex flex-col items-center justify-end pb-2 select-none"
-                      style={{
-                        width: "3.2rem",
-                        height: "9rem",
-                        background: activeKey === key.note ? key.color : "white",
-                        borderColor: activeKey === key.note ? key.color : "#E5DDD0",
-                        color: activeKey === key.note ? "white" : "#999",
-                        transform: activeKey === key.note ? "translateY(3px)" : "translateY(0)",
-                        transition: "all 0.08s ease",
-                      }}
-                    >
-                      <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>
-                        {key.note.replace("2", "")}
-                      </span>
-                      <span className="text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                        {key.label}
-                      </span>
-                    </button>
-                  ))}
+                  {WHITE_KEYS.map((key) => {
+                    const physicalKey = Object.entries(KEY_TO_NOTE).find(([, n]) => n === key.note.replace("2",""))?.[0];
+                    const isKbActive = activeKeyboardNote === key.note.replace("2","") || activeKey === key.note;
+                    return (
+                      <button
+                        key={key.note}
+                        onMouseDown={() => handleKeyPress(key.note)}
+                        onTouchStart={(e) => { e.preventDefault(); handleKeyPress(key.note); }}
+                        className="piano-key-white flex flex-col items-center justify-end pb-2 select-none"
+                        style={{
+                          width: "3.2rem",
+                          height: "9rem",
+                          background: isKbActive ? key.color : "white",
+                          borderColor: isKbActive ? key.color : "#E5DDD0",
+                          color: isKbActive ? "white" : "#999",
+                          transform: isKbActive ? "translateY(3px)" : "translateY(0)",
+                          transition: "all 0.08s ease",
+                        }}
+                      >
+                        <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                          {key.note.replace("2", "")}
+                        </span>
+                        <span className="text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                          {key.label}
+                        </span>
+                        {physicalKey && key.note !== "C2" && (
+                          <span
+                            className="text-xs font-mono mt-0.5 px-1 rounded"
+                            style={{ background: "#F0EDE8", color: "#999", fontSize: "0.6rem" }}
+                          >
+                            {physicalKey.toUpperCase()}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <p className="text-center text-sm text-gray-400 mt-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                Tap or click the keys to play notes! 🎵
-              </p>
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-400 mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  Tap, click, or use your keyboard to play! 🎵
+                </p>
+                <p className="text-xs text-gray-400" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  ⌨️ Keys: <span className="font-mono">A S D F G H J</span> = DO RE MI FA SOL LA SI
+                </p>
+              </div>
             </div>
 
             {/* Encouragement */}
