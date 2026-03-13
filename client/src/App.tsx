@@ -1,38 +1,50 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import BottomNav from "./components/BottomNav";
+import Onboarding from "./pages/Onboarding";
+import Dashboard from "./pages/Dashboard";
+import Lesson from "./pages/Lesson";
+import Practice from "./pages/Practice";
+import Progress from "./pages/Progress";
+import SkillTree from "./pages/SkillTree";
 
+// Pages that show the bottom nav
+const PAGES_WITH_NAV = ["/dashboard", "/practice", "/progress", "/skill-tree"];
 
-function Router() {
+function AppLayout() {
+  const [location] = useLocation();
+  const showNav = PAGES_WITH_NAV.some((p) => location.startsWith(p)) || location.startsWith("/lesson");
+
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <div style={{ paddingBottom: showNav ? "4.5rem" : 0 }}>
+        <Switch>
+          <Route path="/" component={Onboarding} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/lesson/:id" component={Lesson} />
+          <Route path="/practice" component={Practice} />
+          <Route path="/progress" component={Progress} />
+          <Route path="/skill-tree" component={SkillTree} />
+          <Route path="/404" component={NotFound} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
+      {showNav && <BottomNav />}
+    </>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <AppLayout />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -1,3 +1,13 @@
+/*
+ * NOTELY — SUNNY STUDIO DESIGN SYSTEM
+ * Design Movement: Bauhaus-inspired Playful Modernism
+ * Core: Bold geometric shapes, warm saturated primaries, asymmetric editorial layout
+ * Colors: Sunflower Yellow #FFB800, Coral Red #FF5C35, Sky Blue #4AABF5, Mint Green #3ECFA4
+ * Background: Warm off-white #FEFAF3, Text: Deep charcoal #1A1A2E
+ * Fonts: Baloo 2 (display/headings), DM Sans (body/UI)
+ * Animation: Springy physics, 300-500ms, bounce easing
+ */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -27,90 +37,47 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Notely brand colors */
+  --color-sunny: var(--sunny);
+  --color-coral: var(--coral);
+  --color-sky: var(--sky);
+  --color-mint: var(--mint);
+  --color-charcoal: var(--charcoal);
+  --color-cream: var(--cream);
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
+  --radius: 1rem;
+
+  /* Notely Brand Palette */
+  --sunny: oklch(0.82 0.18 85);        /* #FFB800 sunflower yellow */
+  --coral: oklch(0.65 0.22 30);        /* #FF5C35 coral red */
+  --sky: oklch(0.70 0.14 230);         /* #4AABF5 sky blue */
+  --mint: oklch(0.75 0.14 165);        /* #3ECFA4 mint green */
+  --charcoal: oklch(0.17 0.02 270);    /* #1A1A2E deep charcoal */
+  --cream: oklch(0.98 0.01 90);        /* #FEFAF3 warm off-white */
+
+  /* Semantic tokens */
+  --background: oklch(0.98 0.01 90);
+  --foreground: oklch(0.17 0.02 270);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
+  --card-foreground: oklch(0.17 0.02 270);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
+  --popover-foreground: oklch(0.17 0.02 270);
+  --primary: oklch(0.82 0.18 85);
+  --primary-foreground: oklch(0.17 0.02 270);
+  --secondary: oklch(0.65 0.22 30);
+  --secondary-foreground: oklch(0.98 0.01 90);
+  --muted: oklch(0.95 0.01 90);
+  --muted-foreground: oklch(0.50 0.02 270);
+  --accent: oklch(0.70 0.14 230);
+  --accent-foreground: oklch(0.98 0.01 90);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
-}
-
-.dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --border: oklch(0.90 0.02 90);
+  --input: oklch(0.90 0.02 90);
+  --ring: oklch(0.82 0.18 85);
 }
 
 @layer base {
@@ -119,6 +86,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Baloo 2', cursive;
+    font-weight: 700;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -134,24 +106,11 @@
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
 
@@ -162,16 +121,229 @@
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1280px;
     }
+  }
+
+  /* Notely custom utility classes */
+  .font-display {
+    font-family: 'Baloo 2', cursive;
+  }
+
+  .btn-notely {
+    font-family: 'Baloo 2', cursive;
+    font-weight: 700;
+    border-radius: 9999px;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .btn-notely:hover {
+    transform: scale(1.05) translateY(-2px);
+  }
+
+  .btn-notely:active {
+    transform: scale(0.97) translateY(0);
+  }
+
+  .card-notely {
+    background: white;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 0 rgba(26, 26, 46, 0.12);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .card-notely:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 0 rgba(26, 26, 46, 0.12);
+  }
+
+  .badge-notely {
+    font-family: 'Baloo 2', cursive;
+    font-weight: 700;
+    border-radius: 9999px;
+    padding: 0.25rem 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  /* Bounce animation for mascot */
+  @keyframes notely-bounce {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50% { transform: translateY(-12px) rotate(3deg); }
+  }
+
+  @keyframes notely-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes notely-wiggle {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+
+  @keyframes notely-pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    70% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes notely-spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes confetti-fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100px) rotate(360deg); opacity: 0; }
+  }
+
+  @keyframes star-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.2); opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes slide-in-right {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes progress-fill {
+    from { width: 0%; }
+    to { width: var(--progress-width, 60%); }
+  }
+
+  .animate-bounce-notely {
+    animation: notely-bounce 2.5s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: notely-float 3s ease-in-out infinite;
+  }
+
+  .animate-wiggle {
+    animation: notely-wiggle 1.5s ease-in-out infinite;
+  }
+
+  .animate-pop {
+    animation: notely-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .animate-spin-slow {
+    animation: notely-spin-slow 8s linear infinite;
+  }
+
+  .animate-star-pulse {
+    animation: star-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Stagger delays */
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-400 { animation-delay: 0.4s; }
+  .delay-500 { animation-delay: 0.5s; }
+  .delay-600 { animation-delay: 0.6s; }
+  .delay-700 { animation-delay: 0.7s; }
+  .delay-800 { animation-delay: 0.8s; }
+
+  /* Progress bar */
+  .progress-notely {
+    height: 12px;
+    background: oklch(0.90 0.02 90);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-notely-fill {
+    height: 100%;
+    border-radius: 9999px;
+    animation: progress-fill 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Piano key styles */
+  .piano-key-white {
+    background: white;
+    border: 2px solid oklch(0.85 0.02 90);
+    border-radius: 0 0 0.5rem 0.5rem;
+    transition: all 0.1s ease;
+    box-shadow: 0 4px 0 oklch(0.80 0.03 90);
+  }
+
+  .piano-key-white:hover,
+  .piano-key-white.active {
+    background: oklch(0.82 0.18 85);
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 oklch(0.80 0.03 90);
+  }
+
+  .piano-key-black {
+    background: oklch(0.17 0.02 270);
+    border-radius: 0 0 0.4rem 0.4rem;
+    transition: all 0.1s ease;
+    box-shadow: 0 4px 0 oklch(0.10 0.02 270);
+  }
+
+  .piano-key-black:hover,
+  .piano-key-black.active {
+    background: oklch(0.65 0.22 30);
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 oklch(0.10 0.02 270);
+  }
+
+  /* Skill tree node */
+  .skill-node {
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .skill-node:hover {
+    transform: scale(1.15);
+  }
+
+  .skill-node.locked {
+    filter: grayscale(0.8) opacity(0.6);
+  }
+
+  /* Font weight utilities */
+  .font-700 { font-weight: 700; }
+  .font-800 { font-weight: 800; }
+
+  /* Skill node absolute position fix */
+  .skill-node {
+    position: absolute;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: oklch(0.95 0.01 90);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.82 0.18 85);
+    border-radius: 4px;
   }
 }
