@@ -63,26 +63,27 @@ function getFrequency(note: string): number {
  * Uses a combination of sine + triangle oscillators with ADSR envelope
  * to approximate a warm piano tone without any sample files.
  */
-export function playNote(note: string, duration: number = 1.2): void {
+export function playNote(note: string, duration: number = 1.2, velocity: number = 0.8): void {
   try {
     const ctx = getAudioContext();
     const freq = getFrequency(note);
     const now = ctx.currentTime;
+    const v = Math.max(0, Math.min(1, velocity));
 
     // Master gain (controls overall volume)
     const masterGain = ctx.createGain();
     masterGain.connect(ctx.destination);
 
-    // ADSR envelope
+    // ADSR envelope — scaled by velocity
     const attack = 0.01;
     const decay = 0.15;
     const sustain = 0.4;
     const release = duration * 0.6;
 
     masterGain.gain.setValueAtTime(0, now);
-    masterGain.gain.linearRampToValueAtTime(0.5, now + attack);
-    masterGain.gain.linearRampToValueAtTime(sustain * 0.5, now + attack + decay);
-    masterGain.gain.setValueAtTime(sustain * 0.5, now + duration - release);
+    masterGain.gain.linearRampToValueAtTime(0.5 * v, now + attack);
+    masterGain.gain.linearRampToValueAtTime(sustain * 0.5 * v, now + attack + decay);
+    masterGain.gain.setValueAtTime(sustain * 0.5 * v, now + duration - release);
     masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     // Primary oscillator — sine wave (fundamental)
@@ -96,7 +97,7 @@ export function playNote(note: string, duration: number = 1.2): void {
     // Second oscillator — triangle wave (adds warmth, 2nd harmonic)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
-    gain2.gain.setValueAtTime(0.3, now);
+    gain2.gain.setValueAtTime(0.3 * v, now);
     osc2.type = "triangle";
     osc2.frequency.setValueAtTime(freq * 2, now); // octave up
     osc2.connect(gain2);
@@ -107,7 +108,7 @@ export function playNote(note: string, duration: number = 1.2): void {
     // Third oscillator — sine (3rd harmonic, adds brightness)
     const osc3 = ctx.createOscillator();
     const gain3 = ctx.createGain();
-    gain3.gain.setValueAtTime(0.1, now);
+    gain3.gain.setValueAtTime(0.1 * v, now);
     osc3.type = "sine";
     osc3.frequency.setValueAtTime(freq * 3, now);
     osc3.connect(gain3);
@@ -115,10 +116,10 @@ export function playNote(note: string, duration: number = 1.2): void {
     osc3.start(now);
     osc3.stop(now + duration * 0.4);
 
-    // Subtle low-pass filter to soften the tone
+    // Low-pass filter — brighter when louder
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(3000, now);
+    filter.frequency.setValueAtTime(1500 + 1500 * v, now);
     filter.frequency.exponentialRampToValueAtTime(800, now + duration);
     // Reconnect through filter
     masterGain.disconnect();

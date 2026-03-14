@@ -24,6 +24,11 @@ export interface LessonStep {
   pulsingCircle?: boolean;
   tapAnywhere?: boolean;
   rhythmQuizOptions?: { pattern: ("long" | "short")[]; correct: boolean; label: string }[];
+  // Dynamics lesson fields
+  velocitySensitive?: boolean;
+  dynamicScenes?: { emoji: string; label: string; level: "soft" | "loud"; emojiMedium?: string; emojiBad?: string }[];
+  dynamicsQuiz?: { note: string; velocity: number; answer: "loud" | "soft" }[];
+  previewVelocities?: number[];
 }
 
 export interface ReflectionPrompt {
@@ -460,6 +465,83 @@ const lesson6: LessonData = {
   },
 };
 
+// ─── LESSON 7: Loud and Soft (6 steps, ~5 min) ─────────────────────────────
+// Concept: Dynamics — sounds can be soft or loud; you control volume with touch
+// Theory: Experiential (feel volume) + Constructivism (name what they feel)
+// No Italian terms (forte/piano) — just "soft" and "loud"
+const lesson7: LessonData = {
+  name: "Lesson 7: Loud and Soft",
+  steps: [
+    // 0 — Warm up: standard free explore
+    {
+      type: "explore",
+      title: "Warm Up! 🎹",
+      instruction: "Welcome back! Play any keys to warm up your fingers.",
+      notes: ALL_KEYS,
+      minTaps: 4,
+    },
+    // 1 — Listen: hear the difference between soft and loud
+    {
+      type: "listen",
+      title: "Soft and Loud! 🔊",
+      instruction: "Tap to hear the SAME note played two ways — first soft, then LOUD! Watch the wave change size.",
+      content: "Music isn't just about which note you play — it's also about HOW you play it! A soft note sounds gentle and quiet. A loud note sounds bold and strong. The same note can feel totally different!",
+      previewNotes: ["C4", "C4"],
+      previewVelocities: [0.2, 0.9],
+    },
+    // 2 — Explore: velocity-sensitive keys (tap position → volume)
+    {
+      type: "explore",
+      title: "Touch and Feel! 🎹",
+      instruction: "Try tapping the TOP of a key for soft... and the BOTTOM for loud! Hear the difference?",
+      notes: ALL_KEYS,
+      velocitySensitive: true,
+      minTaps: 6,
+    },
+    // 3 — Play: dynamic match game (3 emoji scenes)
+    {
+      type: "play",
+      title: "Match the Scene! 🎭",
+      instruction: "Each scene needs a different volume. Play softly or loudly to match!",
+      notes: ALL_KEYS,
+      velocitySensitive: true,
+      dynamicScenes: [
+        { emoji: "😴", label: "Baby sleeping", level: "soft", emojiMedium: "😒", emojiBad: "😭" },
+        { emoji: "🎉", label: "Dance party!", level: "loud", emojiMedium: "😐", emojiBad: "😴" },
+        { emoji: "🐱", label: "Sneaky cat", level: "soft", emojiMedium: "🙀", emojiBad: "😾" },
+      ],
+    },
+    // 4 — Quiz: dynamics audio quiz (4 questions)
+    {
+      type: "quiz",
+      title: "Soft or Loud? 🤔",
+      instruction: "Listen to each sound. Is it soft or loud?",
+      dynamicsQuiz: [
+        { note: "C4", velocity: 0.15, answer: "soft" },
+        { note: "E4", velocity: 0.9, answer: "loud" },
+        { note: "G4", velocity: 0.2, answer: "soft" },
+        { note: "D4", velocity: 0.85, answer: "loud" },
+      ],
+    },
+    // 5 — Explore: free play with velocity + reflection
+    {
+      type: "explore",
+      title: "Your Dynamic Story! ⭐",
+      instruction: "Play any notes soft or loud — tell a story with volume! Start quiet and get louder, or mix it up!",
+      notes: ALL_KEYS,
+      velocitySensitive: true,
+      minTaps: 8,
+    },
+  ],
+  reflections: {
+    5: {
+      prompt: "What did you like more?",
+      optionA: { label: "Playing softly 🤫", value: "soft" },
+      optionB: { label: "Playing loudly! 📢", value: "loud" },
+    },
+  },
+};
+
 // ─── LESSON REGISTRY ─────────────────────────────────────────────────────────
 export const LESSONS: Record<string, LessonData> = {
   "1": lesson1,
@@ -468,4 +550,5 @@ export const LESSONS: Record<string, LessonData> = {
   "4": lesson4,
   "5": lesson5,
   "6": lesson6,
+  "7": lesson7,
 };

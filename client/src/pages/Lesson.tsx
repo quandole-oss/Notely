@@ -62,6 +62,15 @@ export default function Lesson() {
   const rhythmDemoTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const beatLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ─── Dynamics state ──────────────────────────────────────────────────────
+  const [lastVelocity, setLastVelocity] = useState(0.5);
+  const [dynamicSceneRound, setDynamicSceneRound] = useState(0);
+  const [dynamicSceneInput, setDynamicSceneInput] = useState<number[]>([]);
+  const [dynamicSceneRoundComplete, setDynamicSceneRoundComplete] = useState(false);
+  const [dynamicSceneAllComplete, setDynamicSceneAllComplete] = useState(false);
+  const [dynamicsQuizQuestion, setDynamicsQuizQuestion] = useState(0);
+  const [dynamicsQuizHasPlayed, setDynamicsQuizHasPlayed] = useState(false);
+
   const step = lessonSteps[currentStep];
   const isLastStep = currentStep === lessonSteps.length - 1;
   const hasReflection = (step.type === "play" || step.type === "explore") && reflectionPrompts[currentStep] !== undefined;
@@ -98,8 +107,14 @@ export default function Lesson() {
   // ─── Listen step preview — uses previewNotes if defined ────────────────────
   const handleListenPreview = () => {
     const notes = step.previewNotes ?? ["C4", "D4", "E4", "F4", "G4", "A4", "B4"];
+    const velocities = step.previewVelocities;
+    const gap = velocities ? 600 : 250; // slower for dynamics demo
     notes.forEach((note, i) => {
-      setTimeout(() => playNote(note, 0.6), i * 250);
+      setTimeout(() => {
+        const v = velocities ? velocities[i] : 0.8;
+        playNote(note, 0.6, v);
+        if (velocities) setLastVelocity(v);
+      }, i * gap);
     });
   };
 
@@ -150,6 +165,72 @@ export default function Lesson() {
     noteCountRef.current += 1;
     playInstrumentNote(instrumentId, "C4", 0.8);
     setExploreTaps((prev) => prev + 1);
+  };
+
+  // ─── Velocity explore tap: Y-position on key → volume ────────────────────
+  const handleVelocityExploreTap = (noteObj: { note: string }, event: React.MouseEvent | React.TouchEvent) => {
+    noteCountRef.current += 1;
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    let clientY: number;
+    if ("touches" in event) {
+      clientY = event.touches[0]?.clientY ?? rect.top + rect.height / 2;
+    } else {
+      clientY = (event as React.MouseEvent).clientY;
+    }
+    const ratio = (clientY - rect.top) / rect.height;
+    const velocity = 0.2 + ratio * 0.7; // top=0.2 (soft), bottom=0.9 (loud)
+    playNote(noteObj.note, 1.0, velocity);
+    setLastVelocity(velocity);
+    setExploreTaps((prev) => prev + 1);
+  };
+
+  // ─── Dynamic scene play: velocity-sensitive + collect 3 taps per round ───
+  const handleDynamicScenePlay = (noteObj: { note: string }, event: React.MouseEvent | React.TouchEvent) => {
+    if (!step.dynamicScenes || dynamicSceneRoundComplete) return;
+    noteCountRef.current += 1;
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    let clientY: number;
+    if ("touches" in event) {
+      clientY = event.touches[0]?.clientY ?? rect.top + rect.height / 2;
+    } else {
+      clientY = (event as React.MouseEvent).clientY;
+    }
+    const ratio = (clientY - rect.top) / rect.height;
+    const velocity = 0.2 + ratio * 0.7;
+    playNote(noteObj.note, 1.0, velocity);
+    setLastVelocity(velocity);
+    setDynamicSceneInput((prev) => [...prev, velocity]);
+  };
+
+  // ─── Dynamic scene: advance to next round ──────────────────────────────
+  const handleDynamicSceneNextRound = () => {
+    setDynamicSceneRound((r) => r + 1);
+    setDynamicSceneInput([]);
+    setDynamicSceneRoundComplete(false);
+  };
+
+  // ─── Dynamics quiz: play the clip ──────────────────────────────────────
+  const handleDynamicsQuizListen = () => {
+    if (!step.dynamicsQuiz) return;
+    setDynamicsQuizHasPlayed(true);
+    const q = step.dynamicsQuiz[dynamicsQuizQuestion];
+    if (!q) return;
+    playNote(q.note, 0.8, q.velocity);
+    setLastVelocity(q.velocity);
+  };
+
+  // ─── Dynamics quiz: select answer ──────────────────────────────────────
+  const handleDynamicsQuizSelect = (answer: "loud" | "soft") => {
+    if (showFeedback || !step.dynamicsQuiz) return;
+    const q = step.dynamicsQuiz[dynamicsQuizQuestion];
+    const correct = answer === q.answer;
+    setSelectedOption(answer === "soft" ? 0 : 1);
+    setFeedbackCorrect(correct);
+    setShowFeedback(true);
+    if (correct) playSuccessChime();
+    else playErrorSound();
   };
 
   // ─── Drum pad tap handler ─────────────────────────────────────────────────
@@ -302,14 +383,29 @@ export default function Lesson() {
       if (!note) return;
       // Only allow notes that exist in step.notes
       if (!step.notes?.some((n) => n.note === note)) return;
+      // Velocity from Shift key for velocity-sensitive steps
+      const velocity = step.velocitySensitive ? (e.shiftKey ? 0.2 : 0.9) : 0.8;
       if (step.type === "explore") {
         const noteObj = step.notes?.find((n) => n.note === note);
         if (noteObj?.dimmed) return;
         setActiveKeyboardNote(note);
-        playNote(note, 1.0);
+        if (step.velocitySensitive) {
+          playNote(note, 1.0, velocity);
+          setLastVelocity(velocity);
+        } else {
+          playNote(note, 1.0);
+        }
         noteCountRef.current += 1; setExploreTaps((prev) => prev + 1); return;
       }
       setActiveKeyboardNote(note);
+      // Dynamic scenes: keyboard input
+      if (step.dynamicScenes && !dynamicSceneRoundComplete) {
+        noteCountRef.current += 1;
+        playNote(note, 1.0, velocity);
+        setLastVelocity(velocity);
+        setDynamicSceneInput((prev) => [...prev, velocity]);
+        return;
+      }
       // Sequence play: delegate to sequence handler
       if (step.sequence) {
         handleSequenceNotePlay(note);
@@ -333,7 +429,7 @@ export default function Lesson() {
     window.addEventListener("keyup", handleKeyUp);
     return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keyup", handleKeyUp); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime, exploreTaps, handleDrumPadTap, handleRhythmInput, playDrumTap, sequencePosition]);
+  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime, exploreTaps, handleDrumPadTap, handleRhythmInput, playDrumTap, sequencePosition, dynamicSceneInput, dynamicSceneRound, dynamicSceneRoundComplete]);
 
   // ─── Background beat loop ────────────────────────────────────────────────────
   useEffect(() => {
@@ -400,13 +496,31 @@ export default function Lesson() {
 
   // ─── Next step ───────────────────────────────────────────────────────────────
   const handleNext = () => {
-    // Multi-question rhythm quiz: advance to Q1 instead of next step
+    // Multi-question rhythm quiz: advance to next question
     if (step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback) {
       setRhythmQuizQuestion(1);
       setShowFeedback(false);
       setSelectedOption(null);
       setFeedbackCorrect(false);
       setRhythmQuizHasPlayed(false);
+      return;
+    }
+
+    // Multi-question dynamics quiz: advance to next question
+    if (step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1) {
+      setDynamicsQuizQuestion((q) => q + 1);
+      setShowFeedback(false);
+      setSelectedOption(null);
+      setFeedbackCorrect(false);
+      setDynamicsQuizHasPlayed(false);
+      return;
+    }
+
+    // Dynamic scenes: advance to next scene before moving to next step
+    if (step.dynamicScenes && dynamicSceneRound < step.dynamicScenes.length - 1) {
+      setDynamicSceneRound((r) => r + 1);
+      setDynamicSceneInput([]);
+      setLastVelocity(0.5);
       return;
     }
 
@@ -438,6 +552,14 @@ export default function Lesson() {
     setBeatPulse(false);
     setRhythmHasPlayedDemo(false);
     setRhythmQuizHasPlayed(false);
+    // Reset dynamics state
+    setLastVelocity(0.5);
+    setDynamicSceneRound(0);
+    setDynamicSceneInput([]);
+    setDynamicSceneRoundComplete(false);
+    setDynamicSceneAllComplete(false);
+    setDynamicsQuizQuestion(0);
+    setDynamicsQuizHasPlayed(false);
     if (isLastStep) {
       playCelebration();
       const session = JSON.parse(localStorage.getItem("notely_session") || "{}");
@@ -467,14 +589,16 @@ export default function Lesson() {
     (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3) &&
       (!step.pickFavorite || favoriteInstrument !== null) &&
       (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "play" && step.dynamicScenes && dynamicSceneInput.length >= 2) ||
     (step.type === "play" && step.rhythmPatterns && rhythmAllRoundsComplete) ||
     (step.type === "play" && step.sequence && sequencePosition === step.sequence.length &&
       (!hasReflection || reflectionAnswer !== null)) ||
-    (step.type === "play" && !step.rhythmPatterns && !step.sequence && step.notes &&
+    (step.type === "play" && !step.rhythmPatterns && !step.sequence && !step.dynamicScenes && step.notes &&
       playedNotes.length === step.notes.length &&
       (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "quiz" && step.dynamicsQuiz && showFeedback) ||
     (step.type === "quiz" && step.rhythmQuizOptions && showFeedback) ||
-    (step.type === "quiz" && !step.rhythmQuizOptions && selectedOption !== null);
+    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && selectedOption !== null);
 
   // ─── Drum pad rendering helper ────────────────────────────────────────────
   const renderDrumPads = (onTap: (pad: NonNullable<LessonStep["drumPads"]>[number]) => void) => {
@@ -788,8 +912,261 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Explore exercise (piano notes) */}
-        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && step.notes && (
+        {/* ─── Wave visualization (dynamics) ──────────────────────────── */}
+        {(() => {
+          const renderWaveViz = () => {
+            const amp = lastVelocity;
+            const color = amp < 0.5 ? "#4AABF5" : "#FF5C35";
+            const label = amp < 0.4 ? "soft..." : amp > 0.7 ? "LOUD!" : "medium";
+            return (
+              <div className="flex flex-col items-center mb-4">
+                <svg width="200" height="60" viewBox="0 0 200 60" className="mb-1">
+                  {[0, 1, 2, 3, 4].map((i) => {
+                    const x1 = i * 40;
+                    const x2 = x1 + 20;
+                    const x3 = x1 + 40;
+                    const cy = 30;
+                    const h = 25 * amp;
+                    return (
+                      <path
+                        key={i}
+                        d={`M${x1},${cy} Q${x2},${cy - h} ${x3},${cy}`}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth={2 + amp * 3}
+                        strokeLinecap="round"
+                        style={{ transition: "all 0.15s ease-out" }}
+                      />
+                    );
+                  })}
+                </svg>
+                <span className="text-sm font-display font-700" style={{ color, fontFamily: "'Baloo 2', cursive" }}>
+                  {label}
+                </span>
+              </div>
+            );
+          };
+          // Render wave viz for listen steps with previewVelocities
+          if (step.type === "listen" && step.previewVelocities) return renderWaveViz();
+          // Render wave viz for velocity-sensitive explore steps
+          if (step.type === "explore" && step.velocitySensitive && exploreTaps > 0) return renderWaveViz();
+          // Render wave viz for dynamic scene play steps
+          if (step.type === "play" && step.dynamicScenes) return renderWaveViz();
+          return null;
+        })()}
+
+        {/* ─── Explore: velocity-sensitive keys ─────────────────────────── */}
+        {step.type === "explore" && step.velocitySensitive && step.notes && (
+          <div className="animate-slide-up">
+            {/* Gradient hint tip */}
+            <p className="text-center text-sm mb-4" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+              Tap near the <strong>top</strong> of a key = soft &nbsp;|&nbsp; <strong>bottom</strong> = loud
+            </p>
+            <div className="flex justify-center gap-3 mb-6 flex-wrap">
+              {step.notes.map((note, idx) => {
+                const isKeyboardActive = activeKeyboardNote === note.note;
+                return (
+                  <button
+                    key={`${note.note}-${idx}`}
+                    onClick={(e) => handleVelocityExploreTap(note, e)}
+                    className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
+                    style={{
+                      width: "4.5rem",
+                      height: "7rem",
+                      background: isKeyboardActive ? note.color : `linear-gradient(to bottom, ${note.color}22, ${note.color})`,
+                      border: `4px solid ${note.color}`,
+                      color: isKeyboardActive ? "white" : note.color,
+                      transform: isKeyboardActive ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                      boxShadow: isKeyboardActive ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                    }}
+                  >
+                    <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                    <span className="text-sm font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-center text-base font-display font-700 mb-2" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>Notes explored: {exploreTaps}</p>
+            <p className="text-center text-sm italic mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>Listen to how the volume changes!</p>
+            <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: "#F0F7FF", border: "2px solid #4AABF5" }}>
+              <span className="text-xl">⌨️</span>
+              <div>
+                <p className="text-xs font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>Keyboard shortcut</p>
+                <p className="text-xs text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">A</kbd>=C &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">S</kbd>=D &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">D</kbd>=E &nbsp;...&nbsp;
+                  Hold <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">Shift</kbd> = soft
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Play: dynamic match game ─────────────────────────────────── */}
+        {step.type === "play" && step.dynamicScenes && step.notes && (() => {
+          const totalRounds = step.dynamicScenes.length;
+          const scene = step.dynamicScenes[dynamicSceneRound];
+          return (
+            <div className="animate-slide-up">
+              {/* Round indicator */}
+              <div className="flex justify-center items-center gap-2 mb-4">
+                <span className="text-sm font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                  Scene {dynamicSceneRound + 1} of {totalRounds}
+                </span>
+                <div className="flex gap-1">
+                  {step.dynamicScenes.map((_, i) => (
+                    <div key={i} className="w-3 h-3 rounded-full" style={{ background: i < dynamicSceneRound ? "#3ECFA4" : i === dynamicSceneRound ? "#FFB800" : "#E5DDD0" }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Scene card — emoji reacts to velocity */}
+              {scene && !dynamicSceneRoundComplete && (() => {
+                let displayEmoji = scene.emoji;
+                let shake = false;
+                if (dynamicSceneInput.length > 0) {
+                  const v = lastVelocity;
+                  if (scene.level === "soft") {
+                    // soft scene: soft=happy, medium=annoyed, loud=upset
+                    if (v >= 0.65) { displayEmoji = scene.emojiBad ?? scene.emoji; shake = true; }
+                    else if (v >= 0.4) { displayEmoji = scene.emojiMedium ?? scene.emoji; }
+                  } else {
+                    // loud scene: loud=happy, medium=meh, soft=bored
+                    if (v < 0.35) { displayEmoji = scene.emojiBad ?? scene.emoji; }
+                    else if (v < 0.6) { displayEmoji = scene.emojiMedium ?? scene.emoji; }
+                  }
+                }
+                return (
+                  <div className="flex flex-col items-center mb-5">
+                    <div
+                      className="text-7xl mb-2 transition-all duration-150"
+                      style={{
+                        transform: shake ? "translateX(4px)" : "translateX(0)",
+                        animation: shake ? "notely-shake 0.4s ease-in-out" : "none",
+                      }}
+                    >
+                      {displayEmoji}
+                    </div>
+                    <p className="font-display font-700 text-lg mb-1" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                      {scene.label}
+                    </p>
+                    <p className="text-sm" style={{ color: scene.level === "soft" ? "#4AABF5" : "#FF5C35", fontFamily: "'DM Sans', sans-serif" }}>
+                      Play {scene.level === "soft" ? "softly!" : "loudly!"}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Velocity-sensitive keys */}
+              <p className="text-center text-xs mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+                Tap near the <strong>top</strong> = soft &nbsp;|&nbsp; <strong>bottom</strong> = loud
+              </p>
+              <div className="flex justify-center gap-3 mb-4 flex-wrap">
+                {step.notes.map((note, idx) => {
+                  const isKeyboardActive = activeKeyboardNote === note.note;
+                  return (
+                    <button
+                      key={`${note.note}-${idx}`}
+                      onClick={(e) => handleDynamicScenePlay(note, e)}
+                      className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
+                      style={{
+                        width: "4.5rem",
+                        height: "7rem",
+                        background: isKeyboardActive ? note.color : `linear-gradient(to bottom, ${note.color}22, ${note.color})`,
+                        border: `4px solid ${note.color}`,
+                        color: isKeyboardActive ? "white" : note.color,
+                        transform: isKeyboardActive ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                        boxShadow: isKeyboardActive ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                      }}
+                    >
+                      <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Keyboard hint */}
+              <div className="rounded-2xl p-3 flex items-center gap-3 mt-3" style={{ background: "#F0F7FF", border: "2px solid #4AABF5" }}>
+                <span className="text-xl">⌨️</span>
+                <div>
+                  <p className="text-xs font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>Keyboard shortcut</p>
+                  <p className="text-xs text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    Keys <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">A</kbd>-<kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">J</kbd> = notes &nbsp;|&nbsp;
+                    Hold <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">Shift</kbd> = soft
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ─── Quiz: dynamics audio quiz ──────────────────────────────── */}
+        {step.type === "quiz" && step.dynamicsQuiz && (() => {
+          const q = step.dynamicsQuiz[dynamicsQuizQuestion];
+          return (
+            <div className="animate-slide-up">
+              <p className="text-center text-sm font-display font-700 mb-4" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+                Question {dynamicsQuizQuestion + 1} of {step.dynamicsQuiz.length}
+              </p>
+
+              {/* Listen button */}
+              <div className="flex justify-center mb-5">
+                <button onClick={handleDynamicsQuizListen}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{ background: "#4AABF5", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(74,171,245,0.4)" }}>
+                  <span className="text-lg">👂</span>
+                  {dynamicsQuizHasPlayed ? "Listen Again" : "Listen"}
+                </button>
+              </div>
+
+              {/* Answer cards */}
+              {dynamicsQuizHasPlayed && !showFeedback && (
+                <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-center gap-4">
+                  <button onClick={() => handleDynamicsQuizSelect("soft")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "8rem", background: "white", border: "3px solid #4AABF5" }}>
+                    <span className="text-4xl">🤫</span>
+                    <span className="font-display font-700 text-base" style={{ color: "#4AABF5", fontFamily: "'Baloo 2', cursive" }}>Soft</span>
+                  </button>
+                  <button onClick={() => handleDynamicsQuizSelect("loud")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "8rem", background: "white", border: "3px solid #FF5C35" }}>
+                    <span className="text-4xl">📢</span>
+                    <span className="font-display font-700 text-base" style={{ color: "#FF5C35", fontFamily: "'Baloo 2', cursive" }}>Loud</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Feedback */}
+              {showFeedback && (
+                <div className="flex justify-center gap-4 mb-3">
+                  {["soft", "loud"].map((ans, i) => {
+                    const isSelected = selectedOption === i;
+                    const isCorrect = q.answer === ans;
+                    let bg = "#E5DDD0"; let border = "#E5DDD0";
+                    if (isSelected && feedbackCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    else if (isSelected && !feedbackCorrect) { bg = "#FF5C35"; border = "#FF5C35"; }
+                    else if (isCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    return (
+                      <div key={ans} className="card-notely p-5 flex flex-col items-center gap-2"
+                        style={{ width: "8rem", background: bg, border: `3px solid ${border}`, color: isSelected || isCorrect ? "white" : "#999" }}>
+                        <span className="text-4xl">{ans === "soft" ? "🤫" : "📢"}</span>
+                        <span className="font-display font-700 text-base" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                          {ans === "soft" ? "Soft" : "Loud"}
+                        </span>
+                        {(isSelected || isCorrect) && <span className="text-lg">{isCorrect ? "✓" : "✗"}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Explore exercise (piano notes — non-velocity) */}
+        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               {step.notes.map((note, idx) => {
@@ -1046,7 +1423,7 @@ export default function Lesson() {
         )}
 
         {/* Play exercise (piano notes — non-sequence) */}
-        {step.type === "play" && !step.rhythmPatterns && !step.sequence && step.notes && (
+        {step.type === "play" && !step.rhythmPatterns && !step.sequence && !step.dynamicScenes && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center mb-5">
               <button onClick={handleListenDemo} disabled={isDemoPlaying} className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
@@ -1246,8 +1623,25 @@ export default function Lesson() {
           </div>
         )}
 
+        {/* Feedback (dynamics quiz) */}
+        {showFeedback && step.dynamicsQuiz && (
+          <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
+            <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
+            <div>
+              <p className="font-display font-700" style={{ color: feedbackCorrect ? "#2E7D32" : "#E65100", fontFamily: "'Baloo 2', cursive" }}>
+                {feedbackCorrect ? "You heard it right!" : "Not quite!"}
+              </p>
+              <p className="text-sm text-gray-600" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {feedbackCorrect
+                  ? "Your ears are getting great at hearing dynamics!"
+                  : `That one was actually ${step.dynamicsQuiz[dynamicsQuizQuestion].answer}. Listen again next time!`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Feedback (standard quiz) */}
-        {showFeedback && !step.rhythmQuizOptions && (
+        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && (
           <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
             <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
             <div>
@@ -1308,7 +1702,7 @@ export default function Lesson() {
           <button onClick={canProceed ? handleNext : undefined} disabled={!canProceed}
             className="btn-notely w-full py-4 text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: canProceed ? "#FFB800" : "#E5DDD0", color: canProceed ? "#1A1A2E" : "#999", fontFamily: "'Baloo 2', cursive" }}>
-            {isLastStep ? "Finish Lesson! 🎉" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : "Next →"}
+            {isLastStep ? "Finish Lesson! 🎉" : step.dynamicScenes && dynamicSceneRound < step.dynamicScenes.length - 1 ? "Next Scene →" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1 ? "Next Question →" : "Next →"}
           </button>
         </div>
       </div>
