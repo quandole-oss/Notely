@@ -4,21 +4,25 @@
  * "Stage" metaphor: student's instrument center-stage, orbiting activity cards
  * Asymmetric editorial layout, large color blocks, varied card sizes
  * Colors: Sunflower Yellow hero, Coral Red achievements, Sky Blue theory, Mint Green success
+ * NEW: Mood check modal, session recap banner, mood-based lesson filtering
  */
 
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
+import MoodCheck from "@/components/MoodCheck";
+import SessionRecap from "@/components/SessionRecap";
 
 const INSTRUMENT_EMOJIS: Record<string, string> = {
   piano: "🎹", guitar: "🎸", drums: "🥁", violin: "🎻", flute: "🎵", trumpet: "🎺",
 };
 
 const LESSONS = [
-  { id: "1", title: "Meet the Piano", emoji: "🎹", color: "#FFB800", duration: "5 min", stars: 3, completed: true },
-  { id: "2", title: "Your First Notes", emoji: "🎵", color: "#4AABF5", duration: "8 min", stars: 2, completed: true },
-  { id: "3", title: "Play Do-Re-Mi", emoji: "🎶", color: "#FF5C35", duration: "10 min", stars: 0, completed: false, current: true },
-  { id: "4", title: "Rhythm & Beat", emoji: "🥁", color: "#3ECFA4", duration: "8 min", stars: 0, completed: false },
-  { id: "5", title: "Your First Song", emoji: "⭐", color: "#FFB800", duration: "12 min", stars: 0, completed: false },
+  { id: "1", title: "Meet the Instruments", emoji: "🎶", color: "#9C27B0", duration: "4 min", stars: 3, completed: true, tags: ["slow", "theory"] },
+  { id: "2", title: "Meet the Piano", emoji: "🎹", color: "#FFB800", duration: "5 min", stars: 3, completed: true, tags: ["slow", "theory"] },
+  { id: "3", title: "High and Low", emoji: "📏", color: "#4AABF5", duration: "6 min", stars: 2, completed: true, tags: ["slow", "theory"] },
+  { id: "4", title: "Your First Notes", emoji: "🎵", color: "#FF5C35", duration: "8 min", stars: 0, completed: false, current: true, tags: ["slow", "theory"] },
+  { id: "5", title: "Rhythm & Beat", emoji: "🥁", color: "#3ECFA4", duration: "8 min", stars: 0, completed: false, tags: ["fast", "upbeat"] },
+  { id: "6", title: "Your First Song", emoji: "⭐", color: "#FFB800", duration: "12 min", stars: 0, completed: false, tags: ["upbeat"] },
 ];
 
 const ACHIEVEMENTS = [
@@ -27,10 +31,15 @@ const ACHIEVEMENTS = [
   { id: "first_song", title: "Musician!", emoji: "🎸", earned: false },
 ];
 
+type Mood = "energetic" | "calm" | "tired";
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [student, setStudent] = useState({ name: "Musician", avatar: "cat", instrument: "piano" });
   const [greeting, setGreeting] = useState("Good morning");
+  const [showMoodCheck, setShowMoodCheck] = useState(false);
+  const [mood, setMood] = useState<Mood | null>(null);
+  const [sessionSummary, setSessionSummary] = useState<{ lessonName: string; notesPlayed: number; dismissed: boolean } | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("notely_student");
@@ -39,11 +48,57 @@ export default function Dashboard() {
     if (hour < 12) setGreeting("Good morning");
     else if (hour < 17) setGreeting("Good afternoon");
     else setGreeting("Good evening");
+
+    // Check mood for today
+    const session = JSON.parse(localStorage.getItem("notely_session") || "{}");
+    const today = new Date().toISOString().split("T")[0];
+    if (session.lastMoodDate === today && session.mood) {
+      setMood(session.mood);
+    } else {
+      setShowMoodCheck(true);
+    }
+
+    // Check for session recap (Feature 6)
+    if (session.lastSessionSummary && !session.lastSessionSummary.dismissed) {
+      setSessionSummary(session.lastSessionSummary);
+    }
   }, []);
+
+  const handleMoodComplete = (selectedMood: Mood) => {
+    setMood(selectedMood);
+    setShowMoodCheck(false);
+  };
+
+  const handleDismissRecap = () => {
+    setSessionSummary(null);
+    const session = JSON.parse(localStorage.getItem("notely_session") || "{}");
+    if (session.lastSessionSummary) {
+      session.lastSessionSummary.dismissed = true;
+      localStorage.setItem("notely_session", JSON.stringify(session));
+    }
+  };
 
   const avatarEmojis: Record<string, string> = {
     cat: "🐱", bear: "🐻", fox: "🦊", rabbit: "🐰", owl: "🦉", panda: "🐼",
   };
+
+  // Filter/reorder lessons based on mood
+  let filteredLessons = [...LESSONS];
+  if (mood === "energetic") {
+    filteredLessons.sort((a, b) => {
+      const aMatch = a.tags.some((t) => t === "fast" || t === "upbeat") ? 0 : 1;
+      const bMatch = b.tags.some((t) => t === "fast" || t === "upbeat") ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  } else if (mood === "calm") {
+    filteredLessons.sort((a, b) => {
+      const aMatch = a.tags.some((t) => t === "slow" || t === "theory") ? 0 : 1;
+      const bMatch = b.tags.some((t) => t === "slow" || t === "theory") ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  } else if (mood === "tired") {
+    filteredLessons = filteredLessons.slice(0, 2);
+  }
 
   const currentLesson = LESSONS.find((l) => l.current) || LESSONS[2];
   const xpPercent = 42;
@@ -51,6 +106,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#FEFAF3]">
+      {/* Mood Check Overlay (Feature 1) */}
+      {showMoodCheck && <MoodCheck onComplete={handleMoodComplete} />}
+
       {/* Top Navigation */}
       <nav className="flex items-center justify-between px-6 py-4 bg-white border-b border-[#E5DDD0]">
         <div className="flex items-center gap-2">
@@ -84,6 +142,24 @@ export default function Dashboard() {
       </nav>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
+        {/* Session Recap Banner (Feature 6) */}
+        {sessionSummary && (
+          <SessionRecap summary={sessionSummary} onDismiss={handleDismissRecap} />
+        )}
+
+        {/* Tired mood banner */}
+        {mood === "tired" && (
+          <div
+            className="rounded-2xl p-4 mb-4 flex items-center gap-3"
+            style={{ background: "#FFF8E1", border: "2px solid #FFB800" }}
+          >
+            <span className="text-2xl">😴</span>
+            <p className="font-display font-700 text-sm" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+              Short session today — just 2 lessons, you've got this! 💪
+            </p>
+          </div>
+        )}
+
         {/* Hero Section — Stage */}
         <div
           className="relative rounded-3xl overflow-hidden mb-6 p-6"
@@ -145,7 +221,7 @@ export default function Dashboard() {
               📚 Your Lessons
             </h2>
             <div className="space-y-3">
-              {LESSONS.map((lesson, idx) => (
+              {filteredLessons.map((lesson, idx) => (
                 <button
                   key={lesson.id}
                   onClick={() => navigate(`/lesson/${lesson.id}`)}

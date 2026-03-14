@@ -222,6 +222,89 @@ export function playDrumTap(type: "kick" | "snare" | "hihat" = "kick"): void {
 }
 
 /**
+ * Play a synthesised instrument note — each instrument has a clearly different timbre.
+ * piano/drums delegate to existing helpers; guitar, flute, trumpet are custom.
+ */
+export function playInstrumentNote(instrument: string, note: string = "C4", duration: number = 0.8): void {
+  try {
+    if (instrument === "piano") { playNote(note, duration); return; }
+    if (instrument === "drums") { playDrumTap("kick"); setTimeout(() => playDrumTap("hihat"), 150); return; }
+
+    const ctx = getAudioContext();
+    const freq = getFrequency(note);
+    const now = ctx.currentTime;
+
+    if (instrument === "guitar") {
+      // Plucky triangle — fast attack, quick decay
+      const osc = ctx.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.6, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.15, now + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    } else if (instrument === "flute") {
+      // Airy sine + vibrato LFO
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      // Vibrato
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.setValueAtTime(5, now);
+      lfoGain.gain.setValueAtTime(4, now);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      lfo.start(now);
+      lfo.stop(now + duration);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.45, now + 0.05);
+      gain.gain.setValueAtTime(0.4, now + duration * 0.7);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    } else if (instrument === "trumpet") {
+      // Bold square + sawtooth layered, brighter filter
+      const osc1 = ctx.createOscillator();
+      osc1.type = "square";
+      osc1.frequency.setValueAtTime(freq, now);
+      const osc2 = ctx.createOscillator();
+      osc2.type = "sawtooth";
+      osc2.frequency.setValueAtTime(freq, now);
+      const mix = ctx.createGain();
+      mix.gain.setValueAtTime(0.3, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.4, now + 0.03);
+      gain.gain.setValueAtTime(0.35, now + duration * 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc1.connect(gain);
+      osc2.connect(mix);
+      mix.connect(gain);
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(4000, now);
+      gain.connect(filter);
+      filter.connect(ctx.destination);
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration);
+      osc2.stop(now + duration);
+    }
+  } catch (err) {
+    console.warn("Instrument playback failed:", err);
+  }
+}
+
+/**
  * React hook that returns a stable playNote function
  */
 export function useAudio() {
@@ -231,5 +314,6 @@ export function useAudio() {
     playErrorSound,
     playCelebration,
     playDrumTap,
+    playInstrumentNote,
   };
 }
