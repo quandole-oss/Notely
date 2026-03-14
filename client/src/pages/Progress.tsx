@@ -7,6 +7,7 @@
 
 import { useLocation } from "wouter";
 import { useState } from "react";
+import BestMomentsWall from "@/components/BestMomentsWall";
 
 const ACHIEVEMENTS = [
   { id: "first_note", title: "First Note!", desc: "Played your very first note", emoji: "🎵", color: "#FFB800", earned: true, date: "Today" },
@@ -312,6 +313,9 @@ export default function Progress() {
             ))}
           </div>
         )}
+
+        {/* Best Moments Wall (Feature 5) */}
+        <BestMomentsWall />
       </div>
     </div>
   );

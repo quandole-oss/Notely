@@ -16,6 +16,14 @@ export interface LessonStep {
   minTaps?: number;
   quizLayout?: "piano" | "grid";
   previewNotes?: string[]; // for listen steps — notes to play on tap
+  sequence?: string[]; // for guided play steps — ordered note names to play e.g. ["E","D","C"]
+  // Rhythm lesson fields
+  drumPads?: { id: string; label: string; emoji: string; color: string; sound: "kick" | "hihat" | "snare" }[];
+  rhythmPatterns?: { sequence: ("kick" | "hihat")[]; bpm: number }[];
+  backgroundBeat?: { bpm: number };
+  pulsingCircle?: boolean;
+  tapAnywhere?: boolean;
+  rhythmQuizOptions?: { pattern: ("long" | "short")[]; correct: boolean; label: string }[];
 }
 
 export interface ReflectionPrompt {
@@ -285,10 +293,179 @@ const lesson4: LessonData = {
   },
 };
 
+// ─── LESSON 5: Rhythm & Beat (7 steps, ~7 min) ─────────────────────────────
+// Concept: Music has a steady beat; sounds can be long or short; patterns repeat
+// Theory: Constructivism (explore before explain) + Experiential (hands-on drumming)
+const DRUM_PADS = [
+  { id: "boom", label: "Boom", emoji: "🥁", color: "#3ECFA4", sound: "kick" as const },
+  { id: "tick", label: "Tick", emoji: "🔔", color: "#4AABF5", sound: "hihat" as const },
+];
+
+const lesson5: LessonData = {
+  name: "Lesson 5: Rhythm & Beat",
+  steps: [
+    // 0 — Explore: feel the beat (tap anywhere, pulsing circle, background beat)
+    {
+      type: "explore",
+      title: "Feel the Beat! 💓",
+      instruction: "Music has a heartbeat! Tap anywhere to join in with the beat. Can you keep up?",
+      tapAnywhere: true,
+      pulsingCircle: true,
+      backgroundBeat: { bpm: 100 },
+      minTaps: 8,
+    },
+    // 1 — Watch: heartbeat metaphor
+    {
+      type: "watch",
+      title: "Music Has a Heartbeat! 💓",
+      instruction: "Let's learn about the beat — the heartbeat of music!",
+      content: "Every song has a BEAT — like a heartbeat that never stops! When you clap along to a song, you're feeling the beat. Some beats are fast, some are slow, but the beat keeps going steady, like a clock ticking. The beat is what makes you want to move and dance!",
+    },
+    // 2 — Listen: meet the drum pads
+    {
+      type: "listen",
+      title: "Meet the Drums! 🥁",
+      instruction: "Tap each drum to hear its sound. Boom is deep. Tick is bright!",
+      content: "Drums are the heartbeat of a band! The big drum goes BOOM — deep and strong. The small one goes TICK — bright and quick. Together they make rhythm patterns!",
+      drumPads: DRUM_PADS,
+    },
+    // 3 — Explore: free play with drum pads
+    {
+      type: "explore",
+      title: "Free Drumming! 🥁",
+      instruction: "Make your own beats! Tap Boom and Tick in any order you like. There's no wrong rhythm!",
+      drumPads: DRUM_PADS,
+      minTaps: 6,
+    },
+    // 4 — Play: pattern matching (3 rounds)
+    {
+      type: "play",
+      title: "Copy the Pattern! 🎯",
+      instruction: "Listen to the pattern, then copy it with the drum pads. Can you match all 3 rounds?",
+      drumPads: DRUM_PADS,
+      rhythmPatterns: [
+        { sequence: ["kick", "kick", "hihat", "hihat"], bpm: 120 },
+        { sequence: ["kick", "hihat", "kick", "hihat"], bpm: 120 },
+        { sequence: ["kick", "kick", "hihat", "kick", "hihat"], bpm: 130 },
+      ],
+    },
+    // 5 — Quiz: visual block notation (2 questions shown sequentially)
+    {
+      type: "quiz",
+      title: "Read the Rhythm! 📖",
+      instruction: "Look at the blocks! Wide = Boom (long), narrow = Tick (short). Which pattern matches what you hear?",
+      rhythmQuizOptions: [
+        { pattern: ["long", "long", "short", "short"], correct: true, label: "Boom Boom Tick Tick" },
+        { pattern: ["short", "short", "long", "long"], correct: false, label: "Tick Tick Boom Boom" },
+        { pattern: ["long", "short", "long", "short"], correct: true, label: "Boom Tick Boom Tick" },
+        { pattern: ["short", "long", "short", "long"], correct: false, label: "Tick Boom Tick Boom" },
+      ],
+    },
+    // 6 — Explore: drum circle with background beat + reflection
+    {
+      type: "explore",
+      title: "Drum Circle! 🎶",
+      instruction: "Play along with the beat! Add your own Booms and Ticks on top. Feel the groove!",
+      drumPads: DRUM_PADS,
+      backgroundBeat: { bpm: 110 },
+      minTaps: 8,
+    },
+  ],
+  reflections: {
+    6: {
+      prompt: "How did the drum circle make you feel?",
+      optionA: { label: "I felt the groove! 🎶", value: "groove" },
+      optionB: { label: "I liked making patterns! 🧩", value: "patterns" },
+    },
+  },
+};
+
+// ─── LESSON 6: Your First Song (8 steps, ~8 min) ─────────────────────────────
+// Concept: A melody is a series of notes that tell a musical story. You can play one!
+// Theory: Constructivism (scaffolded, chunked mastery) + Humanism (ownership, creative reinterpretation)
+// Song: "Hot Cross Buns" — E-D-C, D-D-D, E-D-C (uses only C, D, E)
+const lesson6: LessonData = {
+  name: "Lesson 6: Your First Song",
+  steps: [
+    // 0 — Explore: Warm Up with C, D, E (re-activate prior knowledge)
+    {
+      type: "explore",
+      title: "Warm Up! 🎹",
+      instruction: "Welcome back! Play C, D, and E to warm up your fingers.",
+      notes: CDE_KEYS,
+      minTaps: 4,
+    },
+    // 1 — Watch: Notes Tell Stories (bridging analogy — constructivism)
+    {
+      type: "watch",
+      title: "Notes Tell Stories! 🎶",
+      instruction: "Let's learn how notes make melodies!",
+      content: "When you play notes in a row, they make a melody — like words making a sentence. A melody is a series of notes that tell a musical story. You already know C, D, and E — that's enough to play a real song!",
+    },
+    // 2 — Listen: Hear "Hot Cross Buns" (observation phase — Kolb)
+    {
+      type: "listen",
+      title: "Hear a Melody 🎵",
+      instruction: "Tap to hear a real melody played with just three notes! Watch the keys light up as each note plays.",
+      content: "This melody is called 'Hot Cross Buns' — one of the most famous beginner songs! It uses only the three notes you already know: E, D, and C. Listen to how they go down like stairs.",
+      previewNotes: ["E4", "D4", "C4", "D4", "D4", "D4", "E4", "D4", "C4"],
+    },
+    // 3 — Play (guided): Learn Part 1 — E, D, C (scaffolded, zone of proximal development)
+    {
+      type: "play",
+      title: "Learn Part 1 🎹",
+      instruction: "Play the first phrase: E, D, C — going down the stairs! The next note glows to help you.",
+      notes: CDE_KEYS,
+      sequence: ["E", "D", "C"],
+    },
+    // 4 — Play (guided): Learn Part 2 — D, D, D (chunked mastery)
+    {
+      type: "play",
+      title: "Learn Part 2 🎹",
+      instruction: "Now the middle part: D, D, D — three times! Tap the glowing key.",
+      notes: CDE_KEYS,
+      sequence: ["D", "D", "D"],
+    },
+    // 5 — Play (full): Put It Together — full melody (active experimentation)
+    {
+      type: "play",
+      title: "Put It Together! ⭐",
+      instruction: "Play the full melody: E-D-C, D-D-D, E-D-C. You've got this!",
+      notes: CDE_KEYS,
+      sequence: ["E", "D", "C", "D", "D", "D", "E", "D", "C"],
+    },
+    // 6 — Explore: Make It Yours (ownership, creative reinterpretation)
+    {
+      type: "explore",
+      title: "Make It Yours! ⭐",
+      instruction: "Can you change the song to sound different? Try mixing up the order of C, D, and E!",
+      notes: CDE_KEYS,
+      minTaps: 6,
+    },
+    // 7 — Explore: How Did That Feel? (learner directs their path)
+    {
+      type: "explore",
+      title: "How Did That Feel? 🌟",
+      instruction: "You just played your first song! You can keep playing, and tell us what you want to do next.",
+      notes: CDE_KEYS,
+      minTaps: 0,
+    },
+  ],
+  reflections: {
+    7: {
+      prompt: "What do you want to do next?",
+      optionA: { label: "I want to play more songs! 🎵", value: "more_songs" },
+      optionB: { label: "I want to make my own! ✨", value: "create_own" },
+    },
+  },
+};
+
 // ─── LESSON REGISTRY ─────────────────────────────────────────────────────────
 export const LESSONS: Record<string, LessonData> = {
   "1": lesson1,
   "2": lesson2,
   "3": lesson3,
   "4": lesson4,
+  "5": lesson5,
+  "6": lesson6,
 };

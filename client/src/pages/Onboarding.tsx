@@ -30,9 +30,9 @@ const INSTRUMENTS = [
 
 // Simple 3-note melody for the "first win" step
 const FIRST_MELODY = [
-  { note: "C", label: "DO", color: "#FFB800", key: "C4" },
-  { note: "E", label: "MI", color: "#FF5C35", key: "E4" },
-  { note: "G", label: "SOL", color: "#4AABF5", key: "G4" },
+  { note: "C", label: "C", color: "#FFB800", key: "C4" },
+  { note: "E", label: "E", color: "#FF5C35", key: "E4" },
+  { note: "G", label: "G", color: "#4AABF5", key: "G4" },
 ];
 
 export default function Onboarding() {
@@ -234,7 +234,7 @@ export default function Onboarding() {
             Tap each colored button in order to play a real melody!
           </p>
           <p className="text-sm text-gray-400 mb-8 text-center">
-            DO → MI → SOL — that's a real musical chord! 🎵
+            C → E → G — that's a real musical chord! 🎵
           </p>
 
           {/* Big colorful note buttons */}

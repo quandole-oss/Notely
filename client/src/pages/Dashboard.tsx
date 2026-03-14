@@ -16,14 +16,26 @@ const INSTRUMENT_EMOJIS: Record<string, string> = {
   piano: "🎹", guitar: "🎸", drums: "🥁", violin: "🎻", flute: "🎵", trumpet: "🎺",
 };
 
-const LESSONS = [
-  { id: "1", title: "Meet the Instruments", emoji: "🎶", color: "#9C27B0", duration: "4 min", stars: 3, completed: true, tags: ["slow", "theory"] },
-  { id: "2", title: "Meet the Piano", emoji: "🎹", color: "#FFB800", duration: "5 min", stars: 3, completed: true, tags: ["slow", "theory"] },
-  { id: "3", title: "High and Low", emoji: "📏", color: "#4AABF5", duration: "6 min", stars: 2, completed: true, tags: ["slow", "theory"] },
-  { id: "4", title: "Your First Notes", emoji: "🎵", color: "#FF5C35", duration: "8 min", stars: 0, completed: false, current: true, tags: ["slow", "theory"] },
-  { id: "5", title: "Rhythm & Beat", emoji: "🥁", color: "#3ECFA4", duration: "8 min", stars: 0, completed: false, tags: ["fast", "upbeat"] },
-  { id: "6", title: "Your First Song", emoji: "⭐", color: "#FFB800", duration: "12 min", stars: 0, completed: false, tags: ["upbeat"] },
+const LESSONS_DEF = [
+  { id: "1", title: "Meet the Instruments", emoji: "🎶", color: "#9C27B0", duration: "4 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "2", title: "Meet the Piano", emoji: "🎹", color: "#FFB800", duration: "5 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "3", title: "High and Low", emoji: "📏", color: "#4AABF5", duration: "6 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "4", title: "Your First Notes", emoji: "🎵", color: "#FF5C35", duration: "8 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "5", title: "Rhythm & Beat", emoji: "🥁", color: "#3ECFA4", duration: "8 min", defaultStars: 0, tags: ["fast", "upbeat"] },
+  { id: "6", title: "Your First Song", emoji: "⭐", color: "#FFB800", duration: "12 min", defaultStars: 0, tags: ["upbeat"] },
 ];
+
+function getLessons() {
+  const progress: Record<string, { completed: boolean; stars: number }> = JSON.parse(localStorage.getItem("notely_progress") || "{}");
+  const lessons = LESSONS_DEF.map((l) => {
+    const p = progress[l.id];
+    return { ...l, completed: p?.completed ?? false, stars: p?.stars ?? l.defaultStars, current: false };
+  });
+  // Mark first incomplete lesson as current
+  const firstIncomplete = lessons.find((l) => !l.completed);
+  if (firstIncomplete) firstIncomplete.current = true;
+  return lessons;
+}
 
 const ACHIEVEMENTS = [
   { id: "first_note", title: "First Note!", emoji: "🎵", earned: true },
@@ -82,25 +94,10 @@ export default function Dashboard() {
     cat: "🐱", bear: "🐻", fox: "🦊", rabbit: "🐰", owl: "🦉", panda: "🐼",
   };
 
-  // Filter/reorder lessons based on mood
-  let filteredLessons = [...LESSONS];
-  if (mood === "energetic") {
-    filteredLessons.sort((a, b) => {
-      const aMatch = a.tags.some((t) => t === "fast" || t === "upbeat") ? 0 : 1;
-      const bMatch = b.tags.some((t) => t === "fast" || t === "upbeat") ? 0 : 1;
-      return aMatch - bMatch;
-    });
-  } else if (mood === "calm") {
-    filteredLessons.sort((a, b) => {
-      const aMatch = a.tags.some((t) => t === "slow" || t === "theory") ? 0 : 1;
-      const bMatch = b.tags.some((t) => t === "slow" || t === "theory") ? 0 : 1;
-      return aMatch - bMatch;
-    });
-  } else if (mood === "tired") {
-    filteredLessons = filteredLessons.slice(0, 2);
-  }
+  const lessons = getLessons();
+  const filteredLessons = lessons;
 
-  const currentLesson = LESSONS.find((l) => l.current) || LESSONS[2];
+  const currentLesson = lessons.find((l) => l.current) || lessons[0];
   const xpPercent = 42;
   const streak = 3;
 
@@ -227,8 +224,8 @@ export default function Dashboard() {
                   onClick={() => navigate(`/lesson/${lesson.id}`)}
                   className="card-notely w-full flex items-center gap-4 p-4 text-left"
                   style={{
-                    opacity: lesson.completed || lesson.current ? 1 : 0.55,
                     animationDelay: `${idx * 0.08}s`,
+                    border: lesson.current ? `3px solid ${lesson.color}` : undefined,
                   }}
                 >
                   {/* Lesson icon */}
@@ -246,9 +243,9 @@ export default function Dashboard() {
                       {lesson.current && (
                         <span
                           className="badge-notely text-xs"
-                          style={{ background: "#FF5C35", color: "white" }}
+                          style={{ background: "#FFB800", color: "#1A1A2E" }}
                         >
-                          Now
+                          Up Next
                         </span>
                       )}
                       {lesson.completed && (

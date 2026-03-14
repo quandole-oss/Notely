@@ -4,7 +4,7 @@
  * Route-aware: reads /lesson/:id and loads lesson data from data/lessons.ts
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useAudio } from "@/hooks/useAudio";
 import { nanoid } from "nanoid";
@@ -25,7 +25,7 @@ export default function Lesson() {
   const lessonSteps = lessonData.steps;
   const reflectionPrompts = lessonData.reflections;
 
-  const { playNote, playSuccessChime, playErrorSound, playCelebration, playInstrumentNote } = useAudio();
+  const { playNote, playSuccessChime, playErrorSound, playCelebration, playInstrumentNote, playDrumTap } = useAudio();
   const [currentStep, setCurrentStep] = useState(0);
   const [playedNotes, setPlayedNotes] = useState<number[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -43,9 +43,28 @@ export default function Lesson() {
   const [favoriteInstrument, setFavoriteInstrument] = useState<string | null>(null);
   const noteCountRef = useRef(0);
 
+  // ─── Sequence play state ─────────────────────────────────────────────────────
+  const [sequencePosition, setSequencePosition] = useState(0);
+  const [sequenceErrorNote, setSequenceErrorNote] = useState<string | null>(null);
+
+  // ─── Rhythm state ──────────────────────────────────────────────────────────
+  const [rhythmRound, setRhythmRound] = useState(0);
+  const [rhythmUserInput, setRhythmUserInput] = useState<string[]>([]);
+  const [rhythmDemoPlaying, setRhythmDemoPlaying] = useState(false);
+  const [rhythmDemoBeatIdx, setRhythmDemoBeatIdx] = useState<number | null>(null);
+  const [rhythmRoundComplete, setRhythmRoundComplete] = useState(false);
+  const [rhythmAllRoundsComplete, setRhythmAllRoundsComplete] = useState(false);
+  const [rhythmQuizQuestion, setRhythmQuizQuestion] = useState(0);
+  const [activeDrumPad, setActiveDrumPad] = useState<string | null>(null);
+  const [beatPulse, setBeatPulse] = useState(false);
+  const [rhythmHasPlayedDemo, setRhythmHasPlayedDemo] = useState(false);
+  const [rhythmQuizHasPlayed, setRhythmQuizHasPlayed] = useState(false);
+  const rhythmDemoTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const beatLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const step = lessonSteps[currentStep];
   const isLastStep = currentStep === lessonSteps.length - 1;
-  const hasReflection = step.type === "play" && reflectionPrompts[currentStep] !== undefined;
+  const hasReflection = (step.type === "play" || step.type === "explore") && reflectionPrompts[currentStep] !== undefined;
 
   // ─── Listen First: play all notes in sequence ───────────────────────────────
   const handleListenDemo = () => {
@@ -55,13 +74,25 @@ export default function Lesson() {
     demoTimeoutsRef.current.forEach(clearTimeout);
     demoTimeoutsRef.current = [];
     const GAP = 600;
-    step.notes.forEach((note, idx) => {
-      const t1 = setTimeout(() => { setDemoNoteIdx(idx); playNote(note.note, 0.7); }, idx * GAP);
-      const t2 = setTimeout(() => { setDemoNoteIdx(null); }, idx * GAP + 400);
-      demoTimeoutsRef.current.push(t1, t2);
-    });
-    const tEnd = setTimeout(() => { setIsDemoPlaying(false); setDemoNoteIdx(null); }, step.notes.length * GAP + 400);
-    demoTimeoutsRef.current.push(tEnd);
+    if (step.sequence) {
+      // Sequence mode: play through the sequence, highlighting corresponding keys
+      step.sequence.forEach((noteName, idx) => {
+        const noteIdx = step.notes!.findIndex(n => n.note === noteName);
+        const t1 = setTimeout(() => { setDemoNoteIdx(noteIdx); playNote(noteName, 0.7); }, idx * GAP);
+        const t2 = setTimeout(() => { setDemoNoteIdx(null); }, idx * GAP + 400);
+        demoTimeoutsRef.current.push(t1, t2);
+      });
+      const tEnd = setTimeout(() => { setIsDemoPlaying(false); setDemoNoteIdx(null); }, step.sequence.length * GAP + 400);
+      demoTimeoutsRef.current.push(tEnd);
+    } else {
+      step.notes.forEach((note, idx) => {
+        const t1 = setTimeout(() => { setDemoNoteIdx(idx); playNote(note.note, 0.7); }, idx * GAP);
+        const t2 = setTimeout(() => { setDemoNoteIdx(null); }, idx * GAP + 400);
+        demoTimeoutsRef.current.push(t1, t2);
+      });
+      const tEnd = setTimeout(() => { setIsDemoPlaying(false); setDemoNoteIdx(null); }, step.notes.length * GAP + 400);
+      demoTimeoutsRef.current.push(tEnd);
+    }
   };
 
   // ─── Listen step preview — uses previewNotes if defined ────────────────────
@@ -93,6 +124,27 @@ export default function Lesson() {
     setExploreTaps((prev) => prev + 1);
   };
 
+  // ─── Sequence play handler (guided melody) ─────────────────────────────────
+  const handleSequenceNotePlay = (noteName: string) => {
+    if (isDemoPlaying || !step.sequence) return;
+    if (sequencePosition >= step.sequence.length) return;
+    noteCountRef.current += 1;
+    playNote(noteName, 1.0);
+    const expected = step.sequence[sequencePosition];
+    if (noteName === expected) {
+      const newPos = sequencePosition + 1;
+      setSequencePosition(newPos);
+      setSequenceErrorNote(null);
+      if (newPos === step.sequence.length) {
+        setTimeout(() => { playSuccessChime(); setShowFeedback(true); setFeedbackCorrect(true); }, 300);
+      }
+    } else {
+      playErrorSound();
+      setSequenceErrorNote(expected);
+      setTimeout(() => setSequenceErrorNote(null), 1500);
+    }
+  };
+
   // ─── Instrument tap handler ───────────────────────────────────────────────
   const handleInstrumentTap = (instrumentId: string) => {
     noteCountRef.current += 1;
@@ -100,22 +152,169 @@ export default function Lesson() {
     setExploreTaps((prev) => prev + 1);
   };
 
+  // ─── Drum pad tap handler ─────────────────────────────────────────────────
+  const handleDrumPadTap = useCallback((pad: { id: string; sound: "kick" | "hihat" | "snare" }) => {
+    noteCountRef.current += 1;
+    playDrumTap(pad.sound);
+    setExploreTaps((prev) => prev + 1);
+    setActiveDrumPad(pad.id);
+    setTimeout(() => setActiveDrumPad(null), 150);
+  }, [playDrumTap]);
+
+  // ─── Rhythm demo: play current round's pattern ────────────────────────────
+  const handleRhythmDemo = () => {
+    if (!step.rhythmPatterns || rhythmDemoPlaying) return;
+    setRhythmHasPlayedDemo(true);
+    const pattern = step.rhythmPatterns[rhythmRound];
+    if (!pattern) return;
+    setRhythmDemoPlaying(true);
+    rhythmDemoTimeoutsRef.current.forEach(clearTimeout);
+    rhythmDemoTimeoutsRef.current = [];
+    const ms = 60000 / pattern.bpm;
+    pattern.sequence.forEach((sound, idx) => {
+      const t1 = setTimeout(() => { setRhythmDemoBeatIdx(idx); playDrumTap(sound); }, idx * ms);
+      const t2 = setTimeout(() => { setRhythmDemoBeatIdx(null); }, idx * ms + ms * 0.6);
+      rhythmDemoTimeoutsRef.current.push(t1, t2);
+    });
+    const tEnd = setTimeout(() => { setRhythmDemoPlaying(false); setRhythmDemoBeatIdx(null); }, pattern.sequence.length * ms + 200);
+    rhythmDemoTimeoutsRef.current.push(tEnd);
+  };
+
+  // ─── Rhythm input: check user's tap against pattern ───────────────────────
+  const handleRhythmInput = useCallback((sound: "kick" | "hihat" | "snare") => {
+    if (!step.rhythmPatterns || rhythmRoundComplete || rhythmDemoPlaying) return;
+    const pattern = step.rhythmPatterns[rhythmRound];
+    if (!pattern) return;
+    const nextIdx = rhythmUserInput.length;
+    const expected = pattern.sequence[nextIdx];
+    playDrumTap(sound);
+    noteCountRef.current += 1;
+    if (sound === expected) {
+      const newInput = [...rhythmUserInput, sound];
+      setRhythmUserInput(newInput);
+      if (newInput.length === pattern.sequence.length) {
+        // Round complete
+        playSuccessChime();
+        setRhythmRoundComplete(true);
+        if (rhythmRound >= step.rhythmPatterns.length - 1) {
+          setRhythmAllRoundsComplete(true);
+        }
+      }
+    } else {
+      playErrorSound();
+      setRhythmUserInput([]);
+    }
+  }, [step.rhythmPatterns, rhythmRound, rhythmUserInput, rhythmRoundComplete, rhythmDemoPlaying, playDrumTap, playSuccessChime, playErrorSound]);
+
+  // ─── Rhythm: advance to next round ────────────────────────────────────────
+  const handleRhythmNextRound = () => {
+    setRhythmRound((r) => r + 1);
+    setRhythmUserInput([]);
+    setRhythmRoundComplete(false);
+    setRhythmHasPlayedDemo(false);
+  };
+
+  // ─── Rhythm quiz: play the correct pattern for current question ───────────
+  const handleRhythmQuizListen = () => {
+    if (!step.rhythmQuizOptions) return;
+    setRhythmQuizHasPlayed(true);
+    const qStart = rhythmQuizQuestion * 2;
+    const correctOpt = step.rhythmQuizOptions.slice(qStart, qStart + 2).find((o) => o.correct);
+    if (!correctOpt) return;
+    const GAP = 400;
+    correctOpt.pattern.forEach((beat, i) => {
+      setTimeout(() => {
+        playDrumTap(beat === "long" ? "kick" : "hihat");
+      }, i * GAP);
+    });
+  };
+
+  // ─── Rhythm quiz: select answer ───────────────────────────────────────────
+  const handleRhythmQuizSelect = (localIdx: number) => {
+    if (showFeedback) return;
+    if (!step.rhythmQuizOptions) return;
+    const qStart = rhythmQuizQuestion * 2;
+    const option = step.rhythmQuizOptions[qStart + localIdx];
+    if (!option) return;
+    setSelectedOption(localIdx);
+    setFeedbackCorrect(option.correct);
+    setShowFeedback(true);
+    if (option.correct) playSuccessChime();
+    else playErrorSound();
+  };
+
   // ─── Keyboard support ────────────────────────────────────────────────────────
   useEffect(() => {
+    // Drum pad keyboard support
+    if (step.drumPads && !step.notes && !step.rhythmPatterns) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        const key = e.key.toLowerCase();
+        if (key === "q" || key === " ") {
+          e.preventDefault();
+          handleDrumPadTap(step.drumPads![0]);
+        } else if (key === "w" || key === "enter") {
+          e.preventDefault();
+          if (step.drumPads![1]) handleDrumPadTap(step.drumPads![1]);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+    // Rhythm pattern keyboard support
+    if (step.drumPads && step.rhythmPatterns) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        const key = e.key.toLowerCase();
+        if (key === "q" || key === " ") {
+          e.preventDefault();
+          handleRhythmInput("kick");
+          setActiveDrumPad("boom");
+          setTimeout(() => setActiveDrumPad(null), 150);
+        } else if (key === "w" || key === "enter") {
+          e.preventDefault();
+          handleRhythmInput("hihat");
+          setActiveDrumPad("tick");
+          setTimeout(() => setActiveDrumPad(null), 150);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+    // Tap anywhere keyboard support
+    if (step.tapAnywhere) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        e.preventDefault();
+        playDrumTap("kick");
+        noteCountRef.current += 1;
+        setExploreTaps((prev) => prev + 1);
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+    // Piano keyboard support
     if (step.type !== "play" && step.type !== "explore") return;
     if (!step.notes) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
       const note = KEY_TO_NOTE[e.key.toLowerCase()];
       if (!note) return;
+      // Only allow notes that exist in step.notes
+      if (!step.notes?.some((n) => n.note === note)) return;
       if (step.type === "explore") {
         const noteObj = step.notes?.find((n) => n.note === note);
-        if (noteObj?.dimmed) return; // ignore dimmed keys
+        if (noteObj?.dimmed) return;
         setActiveKeyboardNote(note);
         playNote(note, 1.0);
         noteCountRef.current += 1; setExploreTaps((prev) => prev + 1); return;
       }
       setActiveKeyboardNote(note);
+      // Sequence play: delegate to sequence handler
+      if (step.sequence) {
+        handleSequenceNotePlay(note);
+        return;
+      }
       playNote(note, 1.0);
       if (step.notes) {
         noteCountRef.current += 1;
@@ -133,7 +332,42 @@ export default function Lesson() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keyup", handleKeyUp); };
-  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime, exploreTaps]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime, exploreTaps, handleDrumPadTap, handleRhythmInput, playDrumTap, sequencePosition]);
+
+  // ─── Background beat loop ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (beatLoopRef.current) clearInterval(beatLoopRef.current);
+
+    if (step.backgroundBeat) {
+      const ms = 60000 / step.backgroundBeat.bpm;
+      beatLoopRef.current = setInterval(() => {
+        playDrumTap("kick");
+        setBeatPulse(true);
+        setTimeout(() => setBeatPulse(false), 150);
+      }, ms);
+    }
+
+    return () => { if (beatLoopRef.current) clearInterval(beatLoopRef.current); };
+  }, [currentStep, step.backgroundBeat, playDrumTap]);
+
+  // ─── Auto-play rhythm demo on entering pattern step / new round ───────────
+  useEffect(() => {
+    if (step.rhythmPatterns && !rhythmRoundComplete && !rhythmDemoPlaying) {
+      const t = setTimeout(() => handleRhythmDemo(), 500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, rhythmRound]);
+
+  // ─── Auto-play rhythm quiz on entering quiz step / advancing question ─────
+  useEffect(() => {
+    if (step.rhythmQuizOptions) {
+      const t = setTimeout(() => handleRhythmQuizListen(), 500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, rhythmQuizQuestion]);
 
   // ─── Quiz handlers ─────────────────────────────────────────────────────────
   const handleQuizListen = (idx: number) => {
@@ -166,7 +400,20 @@ export default function Lesson() {
 
   // ─── Next step ───────────────────────────────────────────────────────────────
   const handleNext = () => {
+    // Multi-question rhythm quiz: advance to Q1 instead of next step
+    if (step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback) {
+      setRhythmQuizQuestion(1);
+      setShowFeedback(false);
+      setSelectedOption(null);
+      setFeedbackCorrect(false);
+      setRhythmQuizHasPlayed(false);
+      return;
+    }
+
     demoTimeoutsRef.current.forEach(clearTimeout);
+    rhythmDemoTimeoutsRef.current.forEach(clearTimeout);
+    if (beatLoopRef.current) clearInterval(beatLoopRef.current);
+    beatLoopRef.current = null;
     setIsDemoPlaying(false);
     setDemoNoteIdx(null);
     setShowFeedback(false);
@@ -176,11 +423,30 @@ export default function Lesson() {
     setReflectionAnswer(null);
     setPreviewedOptions(new Set());
     setFavoriteInstrument(null);
+    // Reset sequence state
+    setSequencePosition(0);
+    setSequenceErrorNote(null);
+    // Reset rhythm state
+    setRhythmRound(0);
+    setRhythmUserInput([]);
+    setRhythmDemoPlaying(false);
+    setRhythmDemoBeatIdx(null);
+    setRhythmRoundComplete(false);
+    setRhythmAllRoundsComplete(false);
+    setRhythmQuizQuestion(0);
+    setActiveDrumPad(null);
+    setBeatPulse(false);
+    setRhythmHasPlayedDemo(false);
+    setRhythmQuizHasPlayed(false);
     if (isLastStep) {
       playCelebration();
       const session = JSON.parse(localStorage.getItem("notely_session") || "{}");
       session.lastSessionSummary = { lessonName: lessonData.name, notesPlayed: noteCountRef.current, dismissed: false };
       localStorage.setItem("notely_session", JSON.stringify(session));
+      // Persist lesson completion
+      const progress: Record<string, { completed: boolean; stars: number }> = JSON.parse(localStorage.getItem("notely_progress") || "{}");
+      progress[lessonId] = { completed: true, stars: 3 };
+      localStorage.setItem("notely_progress", JSON.stringify(progress));
       setLessonComplete(true);
     } else {
       setCurrentStep(currentStep + 1);
@@ -198,9 +464,62 @@ export default function Lesson() {
   const canProceed =
     step.type === "watch" ||
     step.type === "listen" ||
-    (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3) && (!step.pickFavorite || favoriteInstrument !== null)) ||
-    (step.type === "play" && step.notes && playedNotes.length === step.notes.length && (!hasReflection || reflectionAnswer !== null)) ||
-    (step.type === "quiz" && selectedOption !== null);
+    (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3) &&
+      (!step.pickFavorite || favoriteInstrument !== null) &&
+      (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "play" && step.rhythmPatterns && rhythmAllRoundsComplete) ||
+    (step.type === "play" && step.sequence && sequencePosition === step.sequence.length &&
+      (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "play" && !step.rhythmPatterns && !step.sequence && step.notes &&
+      playedNotes.length === step.notes.length &&
+      (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "quiz" && step.rhythmQuizOptions && showFeedback) ||
+    (step.type === "quiz" && !step.rhythmQuizOptions && selectedOption !== null);
+
+  // ─── Drum pad rendering helper ────────────────────────────────────────────
+  const renderDrumPads = (onTap: (pad: NonNullable<LessonStep["drumPads"]>[number]) => void) => {
+    if (!step.drumPads) return null;
+    return (
+      <div className="flex justify-center gap-6 mb-6">
+        {step.drumPads.map((pad) => {
+          const isActive = activeDrumPad === pad.id;
+          return (
+            <button
+              key={pad.id}
+              onClick={() => onTap(pad)}
+              className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
+              style={{
+                width: "7rem",
+                height: "8.5rem",
+                background: isActive ? pad.color : "white",
+                border: `4px solid ${pad.color}`,
+                color: isActive ? "white" : pad.color,
+                transform: isActive ? "translateY(4px) scale(0.95)" : "translateY(0) scale(1)",
+                boxShadow: isActive ? `0 2px 0 ${pad.color}88` : `0 6px 0 ${pad.color}55`,
+              }}
+            >
+              <span className="text-4xl mb-1">{pad.emoji}</span>
+              <span className="text-base font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>{pad.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ─── Drum pad keyboard hint ───────────────────────────────────────────────
+  const renderDrumKeyboardHint = () => (
+    <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: "#F0F7FF", border: "2px solid #4AABF5" }}>
+      <span className="text-xl">⌨️</span>
+      <div>
+        <p className="text-xs font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>Keyboard shortcut</p>
+        <p className="text-xs text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          Press <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">Q</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">Space</kbd> = Boom &nbsp;
+          <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">W</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">Enter</kbd> = Tick
+        </p>
+      </div>
+    </div>
+  );
 
   // ─── Lesson complete screen ──────────────────────────────────────────────────
   if (lessonComplete) {
@@ -240,6 +559,20 @@ export default function Lesson() {
     );
   }
 
+  // ─── Badge text ───────────────────────────────────────────────────────────────
+  const getBadgeText = () => {
+    if (step.type === "watch") return "👀 Watch";
+    if (step.type === "listen") return step.drumPads ? "🥁 Listen" : "👂 Listen";
+    if (step.type === "play") return step.rhythmPatterns ? "🥁 Play" : "🎹 Play";
+    if (step.type === "explore") {
+      if (step.tapAnywhere || step.drumPads) return "🥁 Explore";
+      if (step.instruments) return "🎶 Explore";
+      return "🎹 Explore";
+    }
+    if (step.type === "quiz") return step.rhythmQuizOptions ? "🥁 Quiz" : "🧠 Quiz";
+    return "🧠 Quiz";
+  };
+
   return (
     <div className="min-h-screen bg-[#FEFAF3] flex flex-col">
       {/* Top bar */}
@@ -265,15 +598,26 @@ export default function Lesson() {
             background: step.type === "watch" ? "#FFB800" : step.type === "listen" ? "#4AABF5" : step.type === "play" ? "#FF5C35" : step.type === "explore" ? "#3ECFA4" : "#3ECFA4",
             color: step.type === "watch" ? "#1A1A2E" : "white",
           }}>
-            {step.type === "watch" ? "👀 Watch" : step.type === "listen" ? "👂 Listen" : step.type === "play" ? "🎹 Play" : step.type === "explore" ? (step.instruments ? "🎶 Explore" : "🎹 Explore") : "🧠 Quiz"}
+            {getBadgeText()}
           </span>
         </div>
 
         <h1 className="text-3xl font-display font-800 mb-2" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>{step.title}</h1>
         <p className="text-gray-600 mb-6 text-base" style={{ fontFamily: "'DM Sans', sans-serif" }}>{step.instruction}</p>
 
-        {/* Watch/Listen content */}
-        {(step.type === "watch" || step.type === "listen") && (
+        {/* ─── Watch / Listen with drum pads ─────────────────────────────────── */}
+        {step.type === "listen" && step.drumPads && (
+          <div className="animate-slide-up">
+            {renderDrumPads(handleDrumPadTap)}
+            <div className="card-notely p-5 mb-4">
+              <p className="text-base text-gray-700 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{step.content}</p>
+            </div>
+            {renderDrumKeyboardHint()}
+          </div>
+        )}
+
+        {/* Watch/Listen content (non-drum) */}
+        {(step.type === "watch" || (step.type === "listen" && !step.drumPads)) && (
           <div className="animate-slide-up">
             <div className="rounded-3xl overflow-hidden mb-5 relative cursor-pointer" style={{ height: "200px" }} onClick={step.type === "listen" ? handleListenPreview : undefined}>
               <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663422386160/FwxdRn7gyJEfzV8667mpvP/lesson-bg-Cen66WZRxYbX8NVgUd7ZgM.webp" alt="Music lesson" className="w-full h-full object-cover" />
@@ -297,6 +641,44 @@ export default function Lesson() {
                 <strong>Fun fact:</strong> The piano has 88 keys! But you only need to learn 7 note names to understand all of them.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* ─── Explore: tap anywhere (pulsing circle + background beat) ────── */}
+        {step.type === "explore" && step.tapAnywhere && (
+          <div className="animate-slide-up">
+            <div
+              className="flex flex-col items-center justify-center rounded-3xl mb-6 select-none"
+              style={{ minHeight: "16rem", cursor: "pointer" }}
+              onClick={() => {
+                playDrumTap("kick");
+                noteCountRef.current += 1;
+                setExploreTaps((prev) => prev + 1);
+              }}
+            >
+              {step.pulsingCircle && (
+                <div
+                  className="w-40 h-40 rounded-full flex items-center justify-center mb-4 transition-transform duration-150"
+                  style={{
+                    background: "linear-gradient(135deg, #3ECFA4, #4AABF5)",
+                    transform: beatPulse ? "scale(1.15)" : "scale(1)",
+                    animation: "notely-beat-pulse 0.6s ease-out",
+                    boxShadow: beatPulse ? "0 0 40px rgba(62,207,164,0.5)" : "0 8px 24px rgba(62,207,164,0.3)",
+                  }}
+                >
+                  <span className="text-5xl">💓</span>
+                </div>
+              )}
+              <p className="text-lg font-display font-700 text-center" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                Tap anywhere!
+              </p>
+            </div>
+            <p className="text-center text-base font-display font-700 mb-2" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+              Taps: {exploreTaps}
+            </p>
+            <p className="text-center text-sm italic mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+              Feel the rhythm — tap along with the beat!
+            </p>
           </div>
         )}
 
@@ -377,8 +759,37 @@ export default function Lesson() {
           );
         })()}
 
-        {/* Explore exercise */}
-        {step.type === "explore" && !step.instruments && step.notes && (
+        {/* ─── Explore with drum pads ─────────────────────────────────────── */}
+        {step.type === "explore" && step.drumPads && !step.tapAnywhere && (
+          <div className="animate-slide-up">
+            {/* Beat indicator for background beat */}
+            {step.backgroundBeat && (
+              <div className="flex justify-center gap-3 mb-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="w-4 h-4 rounded-full transition-all duration-150"
+                    style={{
+                      background: beatPulse && i === 0 ? "#3ECFA4" : "#E5DDD0",
+                      transform: beatPulse && i === 0 ? "scale(1.3)" : "scale(1)",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            {renderDrumPads(handleDrumPadTap)}
+            <p className="text-center text-base font-display font-700 mb-2" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+              Beats tapped: {exploreTaps}
+            </p>
+            <p className="text-center text-sm italic mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+              There's no wrong rhythm — just sounds to discover!
+            </p>
+            {renderDrumKeyboardHint()}
+          </div>
+        )}
+
+        {/* Explore exercise (piano notes) */}
+        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               {step.notes.map((note, idx) => {
@@ -420,8 +831,222 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Play exercise */}
-        {step.type === "play" && step.notes && (
+        {/* ─── Play: rhythm pattern matching ─────────────────────────────── */}
+        {step.type === "play" && step.rhythmPatterns && step.drumPads && (() => {
+          const totalRounds = step.rhythmPatterns.length;
+          const currentPattern = step.rhythmPatterns[rhythmRound];
+          return (
+            <div className="animate-slide-up">
+              {/* Round indicator */}
+              <div className="flex justify-center items-center gap-2 mb-4">
+                <span className="text-sm font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                  Round {rhythmRound + 1} of {totalRounds}
+                </span>
+                <div className="flex gap-1">
+                  {step.rhythmPatterns.map((_, i) => (
+                    <div key={i} className="w-3 h-3 rounded-full" style={{ background: i < rhythmRound ? "#3ECFA4" : i === rhythmRound ? "#FFB800" : "#E5DDD0" }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Listen First button */}
+              <div className="flex justify-center mb-5">
+                <button onClick={handleRhythmDemo} disabled={rhythmDemoPlaying || rhythmRoundComplete}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{
+                    background: rhythmDemoPlaying ? "#E5DDD0" : "#4AABF5",
+                    color: rhythmDemoPlaying ? "#999" : "white",
+                    fontFamily: "'Baloo 2', cursive",
+                    boxShadow: rhythmDemoPlaying ? "none" : "0 4px 0 rgba(74,171,245,0.4)",
+                    transform: rhythmDemoPlaying ? "translateY(2px)" : "translateY(0)",
+                  }}>
+                  <span className="text-lg">{rhythmDemoPlaying ? "🎵" : "👂"}</span>
+                  {rhythmDemoPlaying ? "Listening..." : rhythmHasPlayedDemo ? "Listen Again" : "Listen First"}
+                </button>
+              </div>
+
+              {/* Visual beat sequence */}
+              {currentPattern && (
+                <div className="flex justify-center gap-2 mb-5">
+                  {currentPattern.sequence.map((sound, i) => {
+                    const isMatched = i < rhythmUserInput.length;
+                    const isDemoing = rhythmDemoBeatIdx === i;
+                    const isKick = sound === "kick";
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-xl flex items-center justify-center transition-all duration-150"
+                        style={{
+                          width: isKick ? "3rem" : "2rem",
+                          height: "3rem",
+                          background: isMatched ? (isKick ? "#3ECFA4" : "#4AABF5") : isDemoing ? (isKick ? "#3ECFA4" : "#4AABF5") : "#F0EDE8",
+                          border: `3px solid ${isMatched ? (isKick ? "#3ECFA4" : "#4AABF5") : isDemoing ? (isKick ? "#3ECFA4" : "#4AABF5") : "#E5DDD0"}`,
+                          transform: isDemoing ? "scale(1.15)" : "scale(1)",
+                          opacity: isMatched ? 1 : isDemoing ? 1 : 0.6,
+                        }}
+                      >
+                        {isMatched && <span className="text-white text-sm font-bold">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Drum pads for input */}
+              {!rhythmRoundComplete && (
+                <>
+                  {renderDrumPads((pad) => handleRhythmInput(pad.sound))}
+                  <p className="text-center text-sm text-gray-500 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    {rhythmDemoPlaying ? "Listen carefully..." : `${rhythmUserInput.length} / ${currentPattern?.sequence.length ?? 0} beats matched`}
+                  </p>
+                </>
+              )}
+
+              {/* Round complete */}
+              {rhythmRoundComplete && !rhythmAllRoundsComplete && (
+                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center mb-4">
+                  <p className="text-2xl mb-2">🎉</p>
+                  <p className="font-display font-700 text-base mb-3" style={{ color: "#2E7D32", fontFamily: "'Baloo 2', cursive" }}>
+                    Round {rhythmRound + 1} complete!
+                  </p>
+                  <button onClick={handleRhythmNextRound}
+                    className="px-6 py-2.5 rounded-2xl font-display font-700 text-sm select-none"
+                    style={{ background: "#4AABF5", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(74,171,245,0.4)" }}>
+                    Next Round →
+                  </button>
+                </motion.div>
+              )}
+
+              {rhythmAllRoundsComplete && (
+                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center mb-4">
+                  <p className="text-3xl mb-2">🎉🥁🎉</p>
+                  <p className="font-display font-700 text-lg" style={{ color: "#2E7D32", fontFamily: "'Baloo 2', cursive" }}>
+                    All rounds done! You've got rhythm!
+                  </p>
+                </motion.div>
+              )}
+
+              {renderDrumKeyboardHint()}
+            </div>
+          );
+        })()}
+
+        {/* ─── Play: guided sequence (melody) ──────────────────────────── */}
+        {step.type === "play" && step.sequence && step.notes && (
+          <div className="animate-slide-up">
+            {/* Listen First button */}
+            <div className="flex justify-center mb-5">
+              <button onClick={handleListenDemo} disabled={isDemoPlaying || sequencePosition === step.sequence.length}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                style={{
+                  background: isDemoPlaying ? "#E5DDD0" : "#4AABF5",
+                  color: isDemoPlaying ? "#999" : "white",
+                  fontFamily: "'Baloo 2', cursive",
+                  boxShadow: isDemoPlaying ? "none" : "0 4px 0 rgba(74,171,245,0.4)",
+                  transform: isDemoPlaying ? "translateY(2px)" : "translateY(0)",
+                }}>
+                <span className="text-lg">{isDemoPlaying ? "🎵" : "👂"}</span>
+                {isDemoPlaying ? "Listening..." : "Listen First"}
+              </button>
+            </div>
+
+            {/* Sequence progress: note labels */}
+            <div className="flex justify-center items-center gap-1 mb-4 flex-wrap">
+              {step.sequence.map((noteName, idx) => {
+                const done = idx < sequencePosition;
+                const isCurrent = idx === sequencePosition;
+                return (
+                  <div key={idx} className="flex items-center gap-1">
+                    <span
+                      className="inline-flex items-center justify-center rounded-full text-sm font-display font-700 transition-all duration-200"
+                      style={{
+                        width: "2rem",
+                        height: "2rem",
+                        background: done ? "#3ECFA4" : isCurrent ? "#FFB800" : "#F0EDE8",
+                        color: done ? "white" : isCurrent ? "#1A1A2E" : "#999",
+                        fontFamily: "'Baloo 2', cursive",
+                        transform: isCurrent ? "scale(1.15)" : "scale(1)",
+                        boxShadow: isCurrent ? "0 0 8px rgba(255,184,0,0.4)" : "none",
+                      }}
+                    >
+                      {done ? "✓" : noteName}
+                    </span>
+                    {idx < step.sequence!.length - 1 && (
+                      <span className="text-gray-300 text-xs">→</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Piano keys */}
+            <div className="flex justify-center gap-3 mb-6 flex-wrap">
+              {step.notes.map((note, idx) => {
+                const isDemo = demoNoteIdx === idx;
+                const isKeyboardActive = activeKeyboardNote === note.note;
+                const nextExpected = step.sequence![sequencePosition];
+                const isNextNote = note.note === nextExpected && sequencePosition < step.sequence!.length;
+                const isErrorHint = note.note === sequenceErrorNote;
+                const isHighlighted = isDemo || isKeyboardActive;
+                return (
+                  <button
+                    key={`${note.note}-${idx}`}
+                    onClick={() => handleSequenceNotePlay(note.note)}
+                    disabled={isDemoPlaying || sequencePosition >= step.sequence!.length}
+                    className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
+                    style={{
+                      width: "5rem",
+                      height: "7.5rem",
+                      background: isHighlighted ? note.color : isErrorHint ? "#FF5C3533" : "white",
+                      border: `4px solid ${isErrorHint ? "#FF5C35" : note.color}`,
+                      color: isHighlighted ? "white" : note.color,
+                      transform: isHighlighted ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                      boxShadow: isNextNote && !isHighlighted
+                        ? `0 0 16px ${note.color}66, 0 6px 0 ${note.color}55`
+                        : isHighlighted ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                      opacity: isDemoPlaying && !isDemo ? 0.5 : 1,
+                      animation: isNextNote && !isDemoPlaying && !isHighlighted ? "notely-glow-pulse 1.2s ease-in-out infinite" : "none",
+                    }}
+                  >
+                    <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                    <span className="text-sm font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Progress */}
+            <div className="flex justify-center gap-2 mb-3">
+              {step.sequence.map((_, idx) => (
+                <div key={idx} className="transition-all duration-300" style={{
+                  width: idx < sequencePosition ? "1.5rem" : "0.75rem",
+                  height: "0.75rem",
+                  borderRadius: "9999px",
+                  background: idx < sequencePosition ? "#3ECFA4" : "#E5DDD0",
+                }} />
+              ))}
+            </div>
+            <p className="text-center text-sm text-gray-500 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              {isDemoPlaying ? "Listen carefully..." : sequencePosition >= step.sequence.length ? "You did it!" : `${sequencePosition} / ${step.sequence.length} notes`}
+            </p>
+
+            {/* Keyboard hint */}
+            <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: "#F0F7FF", border: "2px solid #4AABF5" }}>
+              <span className="text-xl">⌨️</span>
+              <div>
+                <p className="text-xs font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>Keyboard shortcut</p>
+                <p className="text-xs text-gray-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  Press <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">A</kbd>=C &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">S</kbd>=D &nbsp;
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">D</kbd>=E
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Play exercise (piano notes — non-sequence) */}
+        {step.type === "play" && !step.rhythmPatterns && !step.sequence && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center mb-5">
               <button onClick={handleListenDemo} disabled={isDemoPlaying} className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
@@ -471,6 +1096,71 @@ export default function Lesson() {
             </div>
           </div>
         )}
+
+        {/* ─── Quiz: rhythm (visual block notation) ──────────────────────── */}
+        {step.type === "quiz" && step.rhythmQuizOptions && (() => {
+          const qStart = rhythmQuizQuestion * 2;
+          const qOptions = step.rhythmQuizOptions.slice(qStart, qStart + 2);
+          return (
+            <div className="animate-slide-up">
+              <p className="text-center text-sm font-display font-700 mb-4" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+                Question {rhythmQuizQuestion + 1} of 2
+              </p>
+
+              {/* Listen button */}
+              <div className="flex justify-center mb-5">
+                <button onClick={handleRhythmQuizListen}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{ background: "#4AABF5", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(74,171,245,0.4)" }}>
+                  <span className="text-lg">👂</span>
+                  {rhythmQuizHasPlayed ? "Listen Again" : "Listen"}
+                </button>
+              </div>
+
+              {/* Option cards with visual block notation */}
+              <div className="flex flex-col gap-3">
+                {qOptions.map((option, localIdx) => {
+                  const isSelected = selectedOption === localIdx;
+                  let bg = "white"; let border = "#E5DDD0";
+                  if (showFeedback && isSelected && option.correct) { bg = "#E8F5E9"; border = "#3ECFA4"; }
+                  else if (showFeedback && isSelected && !option.correct) { bg = "#FFF3E0"; border = "#FF5C35"; }
+                  else if (showFeedback && option.correct) { bg = "#E8F5E9"; border = "#3ECFA4"; }
+
+                  return (
+                    <button
+                      key={localIdx}
+                      onClick={() => handleRhythmQuizSelect(localIdx)}
+                      disabled={showFeedback}
+                      className="card-notely p-4 flex flex-col items-center gap-3 select-none transition-all duration-150"
+                      style={{ background: bg, border: `3px solid ${border}` }}
+                    >
+                      {/* Block notation */}
+                      <div className="flex items-center gap-2">
+                        {option.pattern.map((beat, i) => (
+                          <div
+                            key={i}
+                            className="rounded-lg"
+                            style={{
+                              width: beat === "long" ? "3rem" : "1.5rem",
+                              height: "2rem",
+                              background: beat === "long" ? "#3ECFA4" : "#4AABF5",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-sm font-display font-700" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                        {option.label}
+                      </span>
+                      {showFeedback && isSelected && (
+                        <span className="text-lg">{option.correct ? "✓" : "✗"}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Quiz — Piano layout */}
         {step.type === "quiz" && step.options && step.quizLayout === "piano" && (
@@ -556,8 +1246,8 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Feedback */}
-        {showFeedback && (
+        {/* Feedback (standard quiz) */}
+        {showFeedback && !step.rhythmQuizOptions && (
           <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
             <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
             <div>
@@ -576,8 +1266,28 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Reflection prompt */}
-        {step.type === "play" && showFeedback && feedbackCorrect && hasReflection && (
+        {/* Feedback (rhythm quiz) */}
+        {showFeedback && step.rhythmQuizOptions && (
+          <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
+            <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
+            <div>
+              <p className="font-display font-700" style={{ color: feedbackCorrect ? "#2E7D32" : "#E65100", fontFamily: "'Baloo 2', cursive" }}>
+                {feedbackCorrect ? "You read the rhythm!" : "Not quite — try listening again!"}
+              </p>
+              <p className="text-sm text-gray-600" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {feedbackCorrect
+                  ? "Wide blocks = Boom (long), narrow blocks = Tick (short). You've got it!"
+                  : "Remember: wide blocks are long Boom sounds, narrow blocks are short Tick sounds."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Reflection prompt (play + explore steps) */}
+        {hasReflection && (
+          (step.type === "play" && ((step.rhythmPatterns && rhythmAllRoundsComplete) || (!step.rhythmPatterns && showFeedback && feedbackCorrect))) ||
+          (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3))
+        ) && (
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }} className="mt-4 rounded-2xl p-4" style={{ background: "#FFF8E1", border: "2px solid #FFB800" }}>
             <p className="font-display font-700 text-base mb-3" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.95rem", color: "#1A1A2E" }}>
               {reflectionPrompts[currentStep].prompt}
@@ -598,7 +1308,7 @@ export default function Lesson() {
           <button onClick={canProceed ? handleNext : undefined} disabled={!canProceed}
             className="btn-notely w-full py-4 text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: canProceed ? "#FFB800" : "#E5DDD0", color: canProceed ? "#1A1A2E" : "#999", fontFamily: "'Baloo 2', cursive" }}>
-            {isLastStep ? "Finish Lesson! 🎉" : "Next →"}
+            {isLastStep ? "Finish Lesson! 🎉" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : "Next →"}
           </button>
         </div>
       </div>

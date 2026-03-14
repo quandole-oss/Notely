@@ -16,14 +16,14 @@ const KEY_TO_NOTE: Record<string, string> = {
 };
 
 const WHITE_KEYS = [
-  { note: "C", label: "DO", color: "#FFB800" },
-  { note: "D", label: "RE", color: "#FF5C35" },
-  { note: "E", label: "MI", color: "#4AABF5" },
-  { note: "F", label: "FA", color: "#3ECFA4" },
-  { note: "G", label: "SOL", color: "#9C27B0" },
-  { note: "A", label: "LA", color: "#FF5C35" },
-  { note: "B", label: "SI", color: "#FFB800" },
-  { note: "C2", label: "DO", color: "#FFB800" },
+  { note: "C", label: "C", color: "#FFB800" },
+  { note: "D", label: "D", color: "#FF5C35" },
+  { note: "E", label: "E", color: "#4AABF5" },
+  { note: "F", label: "F", color: "#3ECFA4" },
+  { note: "G", label: "G", color: "#9C27B0" },
+  { note: "A", label: "A", color: "#FF5C35" },
+  { note: "B", label: "B", color: "#FFB800" },
+  { note: "C2", label: "C", color: "#FFB800" },
 ];
 
 const BLACK_KEY_POSITIONS = [0, 1, null, 3, 4, 5, null]; // null = no black key after that white key
@@ -54,6 +54,9 @@ export default function Practice() {
   const [isPlaying, setIsPlaying] = useState(false);
   const beatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeKeyboardNote, setActiveKeyboardNote] = useState<string | null>(null);
+  const [isSongDemoPlaying, setIsSongDemoPlaying] = useState(false);
+  const [songDemoNoteIdx, setSongDemoNoteIdx] = useState<number | null>(null);
+  const songDemoTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const handleKeyPress = useCallback((note: string) => {
     // Play the actual audio note
@@ -120,6 +123,36 @@ export default function Practice() {
         beat++;
       }, 500); // 120 BPM
     }
+  };
+
+  // ── Listen First for songs — plays full song in sequence with highlights ──
+  const handleSongListenDemo = () => {
+    const s = SONGS[selectedSong];
+    if (isSongDemoPlaying) return;
+    setIsSongDemoPlaying(true);
+    setSongProgress(0);
+
+    songDemoTimeoutsRef.current.forEach(clearTimeout);
+    songDemoTimeoutsRef.current = [];
+
+    const GAP = 500;
+    s.notes.forEach((note, idx) => {
+      const t1 = setTimeout(() => {
+        setSongDemoNoteIdx(idx);
+        playNote(note, 0.7);
+      }, idx * GAP);
+      const t2 = setTimeout(() => {
+        setSongDemoNoteIdx(null);
+      }, idx * GAP + 350);
+      songDemoTimeoutsRef.current.push(t1, t2);
+    });
+
+    const total = s.notes.length * GAP + 350;
+    const tEnd = setTimeout(() => {
+      setIsSongDemoPlaying(false);
+      setSongDemoNoteIdx(null);
+    }, total);
+    songDemoTimeoutsRef.current.push(tEnd);
   };
 
   const song = SONGS[selectedSong];
@@ -261,7 +294,7 @@ export default function Practice() {
                   Tap, click, or use your keyboard to play! 🎵
                 </p>
                 <p className="text-xs text-gray-400" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                  ⌨️ Keys: <span className="font-mono">A S D F G H J</span> = DO RE MI FA SOL LA SI
+                  ⌨️ Keys: <span className="font-mono">A S D F G H J</span> = C D E F G A B
                 </p>
               </div>
             </div>
@@ -373,7 +406,7 @@ export default function Practice() {
               {SONGS.map((s, idx) => (
                 <button
                   key={idx}
-                  onClick={() => { setSelectedSong(idx); setSongProgress(0); }}
+                  onClick={() => { setSelectedSong(idx); setSongProgress(0); songDemoTimeoutsRef.current.forEach(clearTimeout); setIsSongDemoPlaying(false); setSongDemoNoteIdx(null); }}
                   className="flex-shrink-0 px-4 py-2 rounded-full font-display font-700 text-sm transition-all"
                   style={{
                     background: selectedSong === idx ? "#FFB800" : "white",
@@ -401,26 +434,50 @@ export default function Practice() {
                 </div>
               </div>
 
+              {/* Listen First button */}
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={handleSongListenDemo}
+                  disabled={isSongDemoPlaying}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{
+                    background: isSongDemoPlaying ? "#E5DDD0" : "#4AABF5",
+                    color: isSongDemoPlaying ? "#999" : "white",
+                    fontFamily: "'Baloo 2', cursive",
+                    boxShadow: isSongDemoPlaying ? "none" : "0 4px 0 rgba(74,171,245,0.4)",
+                    transform: isSongDemoPlaying ? "translateY(2px)" : "translateY(0)",
+                  }}
+                >
+                  <span className="text-lg">{isSongDemoPlaying ? "🎵" : "👂"}</span>
+                  {isSongDemoPlaying ? "Listening…" : "Listen First"}
+                </button>
+              </div>
+
               {/* Note sequence */}
               <div className="flex gap-2 mb-4 flex-wrap">
-                {song.notes.map((note, idx) => (
-                  <div
-                    key={idx}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-700 text-sm transition-all duration-300"
-                    style={{
-                      background:
-                        idx < songProgress ? "#3ECFA4" :
-                        idx === songProgress ? "#FFB800" : "#E5DDD0",
-                      color:
-                        idx < songProgress ? "white" :
-                        idx === songProgress ? "#1A1A2E" : "#999",
-                      transform: idx === songProgress && !songComplete ? "scale(1.2)" : "scale(1)",
-                      fontFamily: "'Baloo 2', cursive",
-                    }}
-                  >
-                    {idx < songProgress ? "✓" : note}
-                  </div>
-                ))}
+                {song.notes.map((note, idx) => {
+                  const isDemoHighlight = songDemoNoteIdx === idx;
+                  return (
+                    <div
+                      key={idx}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-700 text-sm transition-all duration-300"
+                      style={{
+                        background:
+                          isDemoHighlight ? "#4AABF5" :
+                          idx < songProgress ? "#3ECFA4" :
+                          idx === songProgress ? "#FFB800" : "#E5DDD0",
+                        color:
+                          isDemoHighlight ? "white" :
+                          idx < songProgress ? "white" :
+                          idx === songProgress ? "#1A1A2E" : "#999",
+                        transform: isDemoHighlight ? "scale(1.25)" : idx === songProgress && !songComplete ? "scale(1.2)" : "scale(1)",
+                        fontFamily: "'Baloo 2', cursive",
+                      }}
+                    >
+                      {idx < songProgress && !isSongDemoPlaying ? "✓" : note}
+                    </div>
+                  );
+                })}
               </div>
 
               {songComplete ? (
@@ -448,24 +505,28 @@ export default function Practice() {
               <div className="flex justify-center gap-1">
                 {WHITE_KEYS.map((key) => {
                   const normalizedNote = key.note === "C2" ? "C" : key.note;
-                  const isNextNote = song.notes[songProgress] === normalizedNote && !songComplete;
+                  const isNextNote = song.notes[songProgress] === normalizedNote && !songComplete && !isSongDemoPlaying;
+                  const isDemoKey = isSongDemoPlaying && songDemoNoteIdx !== null && song.notes[songDemoNoteIdx] === normalizedNote;
                   return (
                     <button
                       key={key.note}
-                      onMouseDown={() => handleKeyPress(key.note)}
-                      onTouchStart={(e) => { e.preventDefault(); handleKeyPress(key.note); }}
+                      onMouseDown={() => !isSongDemoPlaying && handleKeyPress(key.note)}
+                      onTouchStart={(e) => { e.preventDefault(); if (!isSongDemoPlaying) handleKeyPress(key.note); }}
+                      disabled={isSongDemoPlaying}
                       className="piano-key-white flex flex-col items-center justify-end pb-2 select-none"
                       style={{
                         width: "2.8rem",
                         height: "8rem",
                         background:
+                          isDemoKey ? key.color :
                           activeKey === key.note ? key.color :
                           isNextNote ? `${key.color}44` : "white",
-                        borderColor: isNextNote ? key.color : "#E5DDD0",
-                        color: activeKey === key.note ? "white" : "#999",
-                        transform: activeKey === key.note ? "translateY(3px)" : isNextNote ? "translateY(-2px)" : "translateY(0)",
+                        borderColor: isDemoKey ? key.color : isNextNote ? key.color : "#E5DDD0",
+                        color: isDemoKey || activeKey === key.note ? "white" : "#999",
+                        transform: isDemoKey ? "translateY(3px)" : activeKey === key.note ? "translateY(3px)" : isNextNote ? "translateY(-2px)" : "translateY(0)",
                         transition: "all 0.08s ease",
                         boxShadow: isNextNote ? `0 0 12px ${key.color}88` : undefined,
+                        opacity: isSongDemoPlaying && !isDemoKey ? 0.5 : 1,
                       }}
                     >
                       <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>

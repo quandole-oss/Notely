@@ -211,6 +211,17 @@
     50% { transform: scale(1.2); opacity: 1; }
   }
 
+  @keyframes notely-beat-pulse {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.15); }
+    30% { transform: scale(1); }
+  }
+
+  @keyframes notely-glow-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(255,184,0,0.3), 0 6px 0 currentColor; transform: scale(1); }
+    50% { box-shadow: 0 0 20px rgba(255,184,0,0.6), 0 6px 0 currentColor; transform: scale(1.04); }
+  }
+
   @keyframes slide-up {
     from { transform: translateY(30px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
