@@ -180,6 +180,16 @@
     50% { transform: translateY(-12px) rotate(3deg); }
   }
 
+  @keyframes notely-bounce-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes notely-bounce-fast {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
   @keyframes notely-float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }

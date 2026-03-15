@@ -62,6 +62,16 @@ export default function Lesson() {
   const rhythmDemoTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const beatLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ─── Tempo state ──────────────────────────────────────────────────────
+  const [currentTempo, setCurrentTempo] = useState(120);
+  const [tempoSliderMoves, setTempoSliderMoves] = useState(0);
+  const [tempoQuizQuestion, setTempoQuizQuestion] = useState(0);
+  const [tempoQuizHasPlayed, setTempoQuizHasPlayed] = useState(false);
+  const [tempoListenPhase, setTempoListenPhase] = useState<"idle" | "slow" | "fast" | "done">("idle");
+  const [pulseBeat, setPulseBeat] = useState(0);
+  const tempoLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pulseRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // ─── Dynamics state ──────────────────────────────────────────────────────
   const [lastVelocity, setLastVelocity] = useState(0.5);
   const [dynamicSceneRound, setDynamicSceneRound] = useState(0);
@@ -227,6 +237,65 @@ export default function Lesson() {
     const q = step.dynamicsQuiz[dynamicsQuizQuestion];
     const correct = answer === q.answer;
     setSelectedOption(answer === "soft" ? 0 : 1);
+    setFeedbackCorrect(correct);
+    setShowFeedback(true);
+    if (correct) playSuccessChime();
+    else playErrorSound();
+  };
+
+  // ─── Tempo slider change handler ──────────────────────────────────────
+  const handleTempoSliderChange = (bpm: number) => {
+    setCurrentTempo(bpm);
+    setTempoSliderMoves((prev) => prev + 1);
+  };
+
+  // ─── Tempo listen demo: play melody slow then fast ────────────────────
+  const handleTempoListenDemo = () => {
+    if (!step.tempoListenDemo || isDemoPlaying) return;
+    const { slowBpm, fastBpm, sequence } = step.tempoListenDemo;
+    setIsDemoPlaying(true);
+    demoTimeoutsRef.current.forEach(clearTimeout);
+    demoTimeoutsRef.current = [];
+    // Phase 1: Slow
+    setTempoListenPhase("slow");
+    const slowGap = 60000 / slowBpm;
+    sequence.forEach((note, idx) => {
+      const t = setTimeout(() => playNote(note, 0.6), idx * slowGap);
+      demoTimeoutsRef.current.push(t);
+    });
+    const phase1End = sequence.length * slowGap + 600;
+    // Phase 2: Fast
+    const tPhase2 = setTimeout(() => setTempoListenPhase("fast"), phase1End);
+    demoTimeoutsRef.current.push(tPhase2);
+    const fastGap = 60000 / fastBpm;
+    sequence.forEach((note, idx) => {
+      const t = setTimeout(() => playNote(note, 0.6), phase1End + idx * fastGap);
+      demoTimeoutsRef.current.push(t);
+    });
+    const phase2End = phase1End + sequence.length * fastGap + 300;
+    // Done
+    const tDone = setTimeout(() => { setIsDemoPlaying(false); setTempoListenPhase("done"); }, phase2End);
+    demoTimeoutsRef.current.push(tDone);
+  };
+
+  // ─── Tempo quiz: play the clip ──────────────────────────────────────
+  const handleTempoQuizListen = () => {
+    if (!step.tempoQuiz) return;
+    setTempoQuizHasPlayed(true);
+    const q = step.tempoQuiz[tempoQuizQuestion];
+    if (!q) return;
+    const gap = 60000 / q.bpm;
+    q.sequence.forEach((note, i) => {
+      setTimeout(() => playNote(note, 0.6), i * gap);
+    });
+  };
+
+  // ─── Tempo quiz: select answer ──────────────────────────────────────
+  const handleTempoQuizSelect = (answer: "fast" | "slow") => {
+    if (showFeedback || !step.tempoQuiz) return;
+    const q = step.tempoQuiz[tempoQuizQuestion];
+    const correct = answer === q.answer;
+    setSelectedOption(answer === "slow" ? 0 : 1);
     setFeedbackCorrect(correct);
     setShowFeedback(true);
     if (correct) playSuccessChime();
@@ -447,6 +516,39 @@ export default function Lesson() {
     return () => { if (beatLoopRef.current) clearInterval(beatLoopRef.current); };
   }, [currentStep, step.backgroundBeat, playDrumTap]);
 
+  // ─── Tempo beat loop (for tempo slider explore steps) ───────────────────
+  useEffect(() => {
+    if (tempoLoopRef.current) clearInterval(tempoLoopRef.current);
+
+    if (step.tempoSlider) {
+      const ms = 60000 / currentTempo;
+      tempoLoopRef.current = setInterval(() => {
+        playDrumTap("kick");
+        setBeatPulse(true);
+        setTimeout(() => setBeatPulse(false), Math.min(100, ms * 0.3));
+      }, ms);
+    }
+
+    return () => { if (tempoLoopRef.current) clearInterval(tempoLoopRef.current); };
+  }, [currentStep, step.tempoSlider, currentTempo, playDrumTap]);
+
+  // ─── Pulse guide metronome (for tempo-guided play steps) ───────────────
+  useEffect(() => {
+    if (pulseRef.current) clearInterval(pulseRef.current);
+
+    if (step.pulseGuide && step.sequence) {
+      const ms = 60000 / step.pulseGuide.bpm;
+      let beat = 0;
+      setPulseBeat(0);
+      pulseRef.current = setInterval(() => {
+        beat = (beat + 1) % 4;
+        setPulseBeat(beat);
+      }, ms);
+    }
+
+    return () => { if (pulseRef.current) clearInterval(pulseRef.current); };
+  }, [currentStep, step.pulseGuide, step.sequence]);
+
   // ─── Auto-play rhythm demo on entering pattern step / new round ───────────
   useEffect(() => {
     if (step.rhythmPatterns && !rhythmRoundComplete && !rhythmDemoPlaying) {
@@ -464,6 +566,15 @@ export default function Lesson() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, rhythmQuizQuestion]);
+
+  // ─── Auto-play tempo quiz on entering quiz step / advancing question ─────
+  useEffect(() => {
+    if (step.tempoQuiz) {
+      const t = setTimeout(() => handleTempoQuizListen(), 500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, tempoQuizQuestion]);
 
   // ─── Quiz handlers ─────────────────────────────────────────────────────────
   const handleQuizListen = (idx: number) => {
@@ -506,6 +617,16 @@ export default function Lesson() {
       return;
     }
 
+    // Multi-question tempo quiz: advance to next question
+    if (step.tempoQuiz && showFeedback && tempoQuizQuestion < step.tempoQuiz.length - 1) {
+      setTempoQuizQuestion((q) => q + 1);
+      setShowFeedback(false);
+      setSelectedOption(null);
+      setFeedbackCorrect(false);
+      setTempoQuizHasPlayed(false);
+      return;
+    }
+
     // Multi-question dynamics quiz: advance to next question
     if (step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1) {
       setDynamicsQuizQuestion((q) => q + 1);
@@ -528,6 +649,10 @@ export default function Lesson() {
     rhythmDemoTimeoutsRef.current.forEach(clearTimeout);
     if (beatLoopRef.current) clearInterval(beatLoopRef.current);
     beatLoopRef.current = null;
+    if (tempoLoopRef.current) clearInterval(tempoLoopRef.current);
+    tempoLoopRef.current = null;
+    if (pulseRef.current) clearInterval(pulseRef.current);
+    pulseRef.current = null;
     setIsDemoPlaying(false);
     setDemoNoteIdx(null);
     setShowFeedback(false);
@@ -552,6 +677,13 @@ export default function Lesson() {
     setBeatPulse(false);
     setRhythmHasPlayedDemo(false);
     setRhythmQuizHasPlayed(false);
+    // Reset tempo state
+    setCurrentTempo(120);
+    setTempoSliderMoves(0);
+    setTempoQuizQuestion(0);
+    setTempoQuizHasPlayed(false);
+    setTempoListenPhase("idle");
+    setPulseBeat(0);
     // Reset dynamics state
     setLastVelocity(0.5);
     setDynamicSceneRound(0);
@@ -588,6 +720,7 @@ export default function Lesson() {
     step.type === "listen" ||
     (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3) &&
       (!step.pickFavorite || favoriteInstrument !== null) &&
+      (!step.tempoSlider || tempoSliderMoves >= (step.tempoSliderMinMoves ?? 3)) &&
       (!hasReflection || reflectionAnswer !== null)) ||
     (step.type === "play" && step.dynamicScenes && dynamicSceneInput.length >= 2) ||
     (step.type === "play" && step.rhythmPatterns && rhythmAllRoundsComplete) ||
@@ -596,9 +729,10 @@ export default function Lesson() {
     (step.type === "play" && !step.rhythmPatterns && !step.sequence && !step.dynamicScenes && step.notes &&
       playedNotes.length === step.notes.length &&
       (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "quiz" && step.tempoQuiz && showFeedback) ||
     (step.type === "quiz" && step.dynamicsQuiz && showFeedback) ||
     (step.type === "quiz" && step.rhythmQuizOptions && showFeedback) ||
-    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && selectedOption !== null);
+    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && selectedOption !== null);
 
   // ─── Drum pad rendering helper ────────────────────────────────────────────
   const renderDrumPads = (onTap: (pad: NonNullable<LessonStep["drumPads"]>[number]) => void) => {
@@ -691,6 +825,8 @@ export default function Lesson() {
     if (step.type === "explore") {
       if (step.tapAnywhere || step.drumPads) return "🥁 Explore";
       if (step.instruments) return "🎶 Explore";
+      if (step.tempoSlider && !step.notes) return "🎚️ Explore";
+      if (step.tempoSlider && step.notes) return "🎧 Explore";
       return "🎹 Explore";
     }
     if (step.type === "quiz") return step.rhythmQuizOptions ? "🥁 Quiz" : "🧠 Quiz";
@@ -740,8 +876,51 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Watch/Listen content (non-drum) */}
-        {(step.type === "watch" || (step.type === "listen" && !step.drumPads)) && (
+        {/* ─── Listen: tempo demo (slow then fast) ──────────────────── */}
+        {step.type === "listen" && step.tempoListenDemo && (
+          <div className="animate-slide-up">
+            {/* Tortoise / Rabbit animation */}
+            <div className="flex flex-col items-center justify-center mb-6" style={{ minHeight: "10rem" }}>
+              <div
+                className="text-8xl mb-3 transition-all duration-300"
+                style={{
+                  transform: tempoListenPhase === "fast" ? "translateX(8px)" : "translateX(0)",
+                  animation: tempoListenPhase === "slow" ? "notely-bounce-slow 1.5s ease-in-out infinite" : tempoListenPhase === "fast" ? "notely-bounce-fast 0.4s ease-in-out infinite" : "none",
+                }}
+              >
+                {tempoListenPhase === "slow" ? "🐢" : tempoListenPhase === "fast" ? "🐇" : tempoListenPhase === "done" ? "🎵" : "🎵"}
+              </div>
+              <p className="text-lg font-display font-700" style={{ color: tempoListenPhase === "slow" ? "#4AABF5" : tempoListenPhase === "fast" ? "#FF5C35" : "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                {tempoListenPhase === "slow" ? "Slow..." : tempoListenPhase === "fast" ? "Fast!" : tempoListenPhase === "done" ? "Did you hear the difference?" : "Tap to hear both speeds!"}
+              </p>
+            </div>
+            {/* Play button */}
+            <div className="flex justify-center mb-5">
+              <button
+                onClick={handleTempoListenDemo}
+                disabled={isDemoPlaying}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-display font-700 text-base transition-all duration-200 select-none"
+                style={{
+                  background: isDemoPlaying ? "#E5DDD0" : "#4AABF5",
+                  color: isDemoPlaying ? "#999" : "white",
+                  fontFamily: "'Baloo 2', cursive",
+                  boxShadow: isDemoPlaying ? "none" : "0 4px 0 rgba(74,171,245,0.4)",
+                  transform: isDemoPlaying ? "translateY(2px)" : "translateY(0)",
+                }}
+              >
+                <span className="text-lg">{isDemoPlaying ? "🎵" : "🔊"}</span>
+                {isDemoPlaying ? "Listening..." : tempoListenPhase === "done" ? "Listen Again" : "Hear Both Speeds"}
+              </button>
+            </div>
+            {/* Content card */}
+            <div className="card-notely p-5 mb-4">
+              <p className="text-base text-gray-700 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{step.content}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Watch/Listen content (non-drum, non-tempo) */}
+        {(step.type === "watch" || (step.type === "listen" && !step.drumPads && !step.tempoListenDemo)) && (
           <div className="animate-slide-up">
             <div className="rounded-3xl overflow-hidden mb-5 relative cursor-pointer" style={{ height: "200px" }} onClick={step.type === "listen" ? handleListenPreview : undefined}>
               <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663422386160/FwxdRn7gyJEfzV8667mpvP/lesson-bg-Cen66WZRxYbX8NVgUd7ZgM.webp" alt="Music lesson" className="w-full h-full object-cover" />
@@ -1165,8 +1344,161 @@ export default function Lesson() {
           );
         })()}
 
-        {/* Explore exercise (piano notes — non-velocity) */}
-        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && step.notes && (
+        {/* ─── Explore: tempo slider (with optional piano keys for DJ Mode) ── */}
+        {step.type === "explore" && step.tempoSlider && (
+          <div className="animate-slide-up">
+            {/* Character animation responds to tempo */}
+            <div className="flex flex-col items-center mb-4">
+              <div
+                className="text-7xl mb-2"
+                style={{
+                  animation: `notely-bounce-fast ${60 / currentTempo}s ease-in-out infinite`,
+                }}
+              >
+                {currentTempo < 100 ? "🐢" : currentTempo < 140 ? "🚶" : "🐇"}
+              </div>
+            </div>
+
+            {/* BPM display */}
+            <p className="text-center text-2xl font-display font-800 mb-1" style={{ color: currentTempo < 100 ? "#4AABF5" : currentTempo < 140 ? "#FFB800" : "#FF5C35", fontFamily: "'Baloo 2', cursive" }}>
+              {Math.round(currentTempo)} BPM
+            </p>
+            <p className="text-center text-sm mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+              {currentTempo < 100 ? "Slow and steady" : currentTempo < 140 ? "Walking speed" : "Fast and exciting!"}
+            </p>
+
+            {/* Tempo slider */}
+            <div className="px-4 mb-4">
+              <div className="flex justify-between text-sm mb-2" style={{ fontFamily: "'Baloo 2', cursive", fontWeight: 700 }}>
+                <span style={{ color: "#4AABF5" }}>🐢 Slow</span>
+                <span style={{ color: "#FF5C35" }}>Fast 🐇</span>
+              </div>
+              <input
+                type="range"
+                min={step.tempoRange?.[0] ?? 60}
+                max={step.tempoRange?.[1] ?? 180}
+                value={currentTempo}
+                onChange={(e) => handleTempoSliderChange(Number(e.target.value))}
+                className="w-full h-3 rounded-full cursor-pointer"
+                style={{ accentColor: currentTempo < 100 ? "#4AABF5" : currentTempo < 140 ? "#FFB800" : "#FF5C35" }}
+              />
+            </div>
+
+            {/* Beat pulse indicator */}
+            <div className="flex justify-center gap-2 mb-5">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-4 h-4 rounded-full transition-all duration-100"
+                  style={{
+                    background: beatPulse && i === 0 ? (currentTempo < 100 ? "#4AABF5" : currentTempo < 140 ? "#FFB800" : "#FF5C35") : "#E5DDD0",
+                    transform: beatPulse && i === 0 ? "scale(1.4)" : "scale(1)",
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Piano keys (DJ Mode — step 5) */}
+            {step.notes && (
+              <>
+                <div className="flex justify-center gap-3 mb-4 flex-wrap">
+                  {step.notes.map((note, idx) => {
+                    const isKeyboardActive = activeKeyboardNote === note.note;
+                    return (
+                      <button
+                        key={`${note.note}-${idx}`}
+                        onClick={() => handleExploreTap(note)}
+                        className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
+                        style={{
+                          width: "4.5rem",
+                          height: "7rem",
+                          background: isKeyboardActive ? note.color : "white",
+                          border: `4px solid ${note.color}`,
+                          color: isKeyboardActive ? "white" : note.color,
+                          transform: isKeyboardActive ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                          boxShadow: isKeyboardActive ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                        }}
+                      >
+                        <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                        <span className="text-sm font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-center text-base font-display font-700 mb-2" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                  Notes played: {exploreTaps}
+                </p>
+              </>
+            )}
+
+          </div>
+        )}
+
+        {/* ─── Quiz: tempo audio quiz ──────────────────────────────────── */}
+        {step.type === "quiz" && step.tempoQuiz && (() => {
+          return (
+            <div className="animate-slide-up">
+              <p className="text-center text-sm font-display font-700 mb-4" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+                Question {tempoQuizQuestion + 1} of {step.tempoQuiz.length}
+              </p>
+
+              {/* Listen button */}
+              <div className="flex justify-center mb-5">
+                <button onClick={handleTempoQuizListen}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{ background: "#4AABF5", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(74,171,245,0.4)" }}>
+                  <span className="text-lg">👂</span>
+                  {tempoQuizHasPlayed ? "Listen Again" : "Listen"}
+                </button>
+              </div>
+
+              {/* Answer cards */}
+              {tempoQuizHasPlayed && !showFeedback && (
+                <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-center gap-4">
+                  <button onClick={() => handleTempoQuizSelect("slow")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "8rem", background: "white", border: "3px solid #4AABF5" }}>
+                    <span className="text-4xl">🐢</span>
+                    <span className="font-display font-700 text-base" style={{ color: "#4AABF5", fontFamily: "'Baloo 2', cursive" }}>Slow</span>
+                  </button>
+                  <button onClick={() => handleTempoQuizSelect("fast")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "8rem", background: "white", border: "3px solid #FF5C35" }}>
+                    <span className="text-4xl">🐇</span>
+                    <span className="font-display font-700 text-base" style={{ color: "#FF5C35", fontFamily: "'Baloo 2', cursive" }}>Fast</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Feedback */}
+              {showFeedback && (
+                <div className="flex justify-center gap-4 mb-3">
+                  {(["slow", "fast"] as const).map((ans, i) => {
+                    const isSelected = selectedOption === i;
+                    const isCorrect = step.tempoQuiz![tempoQuizQuestion].answer === ans;
+                    let bg = "#E5DDD0"; let border = "#E5DDD0";
+                    if (isSelected && feedbackCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    else if (isSelected && !feedbackCorrect) { bg = "#FF5C35"; border = "#FF5C35"; }
+                    else if (isCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    return (
+                      <div key={ans} className="card-notely p-5 flex flex-col items-center gap-2"
+                        style={{ width: "8rem", background: bg, border: `3px solid ${border}`, color: isSelected || isCorrect ? "white" : "#999" }}>
+                        <span className="text-4xl">{ans === "slow" ? "🐢" : "🐇"}</span>
+                        <span className="font-display font-700 text-base" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                          {ans === "slow" ? "Slow" : "Fast"}
+                        </span>
+                        {(isSelected || isCorrect) && <span className="text-lg">{isCorrect ? "✓" : "✗"}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Explore exercise (piano notes — non-velocity, non-tempo) */}
+        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && !step.tempoSlider && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               {step.notes.map((note, idx) => {
@@ -1311,6 +1643,28 @@ export default function Lesson() {
         {/* ─── Play: guided sequence (melody) ──────────────────────────── */}
         {step.type === "play" && step.sequence && step.notes && (
           <div className="animate-slide-up">
+            {/* Pulse guide metronome (tempo-guided play) */}
+            {step.pulseGuide && sequencePosition < step.sequence.length && (
+              <div className="flex flex-col items-center mb-4">
+                <div className="flex justify-center gap-3 mb-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-5 rounded-full transition-all duration-100"
+                      style={{
+                        background: pulseBeat === i ? (step.pulseGuide!.bpm > 120 ? "#FF5C35" : "#4AABF5") : "#E5DDD0",
+                        transform: pulseBeat === i ? "scale(1.4)" : "scale(1)",
+                        boxShadow: pulseBeat === i ? `0 0 12px ${step.pulseGuide!.bpm > 120 ? "#FF5C3566" : "#4AABF566"}` : "none",
+                      }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+                  {step.pulseGuide.bpm > 120 ? "Quick tempo — keep up!" : "Slow tempo — take your time"}
+                </p>
+              </div>
+            )}
+
             {/* Listen First button */}
             <div className="flex justify-center mb-5">
               <button onClick={handleListenDemo} disabled={isDemoPlaying || sequencePosition === step.sequence.length}
@@ -1640,8 +1994,25 @@ export default function Lesson() {
           </div>
         )}
 
+        {/* Feedback (tempo quiz) */}
+        {showFeedback && step.tempoQuiz && (
+          <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
+            <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
+            <div>
+              <p className="font-display font-700" style={{ color: feedbackCorrect ? "#2E7D32" : "#E65100", fontFamily: "'Baloo 2', cursive" }}>
+                {feedbackCorrect ? "You heard it right!" : "Not quite!"}
+              </p>
+              <p className="text-sm text-gray-600" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {feedbackCorrect
+                  ? "You can tell the difference between fast and slow!"
+                  : `That one was actually ${step.tempoQuiz[tempoQuizQuestion].answer}. Listen again next time!`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Feedback (standard quiz) */}
-        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && (
+        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && (
           <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
             <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
             <div>
@@ -1702,7 +2073,7 @@ export default function Lesson() {
           <button onClick={canProceed ? handleNext : undefined} disabled={!canProceed}
             className="btn-notely w-full py-4 text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: canProceed ? "#FFB800" : "#E5DDD0", color: canProceed ? "#1A1A2E" : "#999", fontFamily: "'Baloo 2', cursive" }}>
-            {isLastStep ? "Finish Lesson! 🎉" : step.dynamicScenes && dynamicSceneRound < step.dynamicScenes.length - 1 ? "Next Scene →" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1 ? "Next Question →" : "Next →"}
+            {isLastStep ? "Finish Lesson! 🎉" : step.dynamicScenes && dynamicSceneRound < step.dynamicScenes.length - 1 ? "Next Scene →" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1 ? "Next Question →" : step.tempoQuiz && showFeedback && tempoQuizQuestion < step.tempoQuiz.length - 1 ? "Next Question →" : "Next →"}
           </button>
         </div>
       </div>

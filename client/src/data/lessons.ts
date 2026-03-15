@@ -29,6 +29,13 @@ export interface LessonStep {
   dynamicScenes?: { emoji: string; label: string; level: "soft" | "loud"; emojiMedium?: string; emojiBad?: string }[];
   dynamicsQuiz?: { note: string; velocity: number; answer: "loud" | "soft" }[];
   previewVelocities?: number[];
+  // Tempo lesson fields
+  tempoSlider?: boolean;
+  tempoRange?: [number, number]; // [minBPM, maxBPM]
+  tempoSliderMinMoves?: number;
+  pulseGuide?: { bpm: number }; // visual metronome for guided play
+  tempoQuiz?: { sequence: string[]; bpm: number; answer: "fast" | "slow" }[];
+  tempoListenDemo?: { slowBpm: number; fastBpm: number; sequence: string[] };
 }
 
 export interface ReflectionPrompt {
@@ -542,6 +549,85 @@ const lesson7: LessonData = {
   },
 };
 
+// ─── LESSON 8: Fast and Slow (6 steps, ~5 min) ─────────────────────────────
+// Concept: Music can move quickly or slowly — this is called tempo.
+// Theory: Experiential (hear/feel tempo contrast) + Constructivism (slider gives learner control)
+const lesson8: LessonData = {
+  name: "Lesson 8: Fast and Slow",
+  steps: [
+    // 0 — Listen: hear the same melody at two speeds (tortoise vs rabbit)
+    {
+      type: "listen",
+      title: "Two Speeds! 🐢🐇",
+      instruction: "Tap to hear the same melody played two ways — first slow like a tortoise, then fast like a rabbit!",
+      content: "Music can move slowly or quickly — this is called TEMPO! A slow tempo feels calm and relaxed. A fast tempo feels exciting and energetic. The same notes can feel totally different depending on the speed!",
+      tempoListenDemo: {
+        slowBpm: 80,
+        fastBpm: 180,
+        sequence: ["C", "D", "E", "D", "C"],
+      },
+    },
+    // 1 — Explore: tempo slider with looping beat + character animation
+    {
+      type: "explore",
+      title: "Speed Control! 🎚️",
+      instruction: "Drag the slider to change the speed! Watch the character speed up and slow down.",
+      tempoSlider: true,
+      tempoRange: [60, 180],
+      tempoSliderMinMoves: 3,
+      minTaps: 0,
+    },
+    // 2 — Play: guided sequence at slow pulse
+    {
+      type: "play",
+      title: "Slow Song 🐢",
+      instruction: "Play C-D-E-D-C following the slow beat. Watch the pulse dots and play along!",
+      notes: CDE_KEYS,
+      sequence: ["C", "D", "E", "D", "C"],
+      pulseGuide: { bpm: 80 },
+    },
+    // 3 — Play: same melody at fast pulse
+    {
+      type: "play",
+      title: "Fast Song 🐇",
+      instruction: "Same melody, but faster! Play C-D-E-D-C with the quick beat!",
+      notes: CDE_KEYS,
+      sequence: ["C", "D", "E", "D", "C"],
+      pulseGuide: { bpm: 160 },
+    },
+    // 4 — Quiz: categorize 4 audio clips as fast or slow
+    {
+      type: "quiz",
+      title: "Fast or Slow? 🤔",
+      instruction: "Listen to each clip. Is it fast or slow?",
+      tempoQuiz: [
+        { sequence: ["C", "D", "E"], bpm: 70, answer: "slow" },
+        { sequence: ["E", "D", "C"], bpm: 180, answer: "fast" },
+        { sequence: ["C", "E", "D"], bpm: 75, answer: "slow" },
+        { sequence: ["D", "E", "C"], bpm: 170, answer: "fast" },
+      ],
+    },
+    // 5 — Explore: DJ Mode — piano keys + tempo slider, free play
+    {
+      type: "explore",
+      title: "DJ Mode! 🎧",
+      instruction: "Play the piano at any speed you like! Drag the slider to change tempo. What speed feels best to YOU?",
+      notes: CDE_KEYS,
+      tempoSlider: true,
+      tempoRange: [60, 180],
+      tempoSliderMinMoves: 0,
+      minTaps: 6,
+    },
+  ],
+  reflections: {
+    5: {
+      prompt: "What speed do you like best?",
+      optionA: { label: "Slow and chill 🐢", value: "slow" },
+      optionB: { label: "Fast and exciting! 🐇", value: "fast" },
+    },
+  },
+};
+
 // ─── LESSON REGISTRY ─────────────────────────────────────────────────────────
 export const LESSONS: Record<string, LessonData> = {
   "1": lesson1,
@@ -551,4 +637,5 @@ export const LESSONS: Record<string, LessonData> = {
   "5": lesson5,
   "6": lesson6,
   "7": lesson7,
+  "8": lesson8,
 };
