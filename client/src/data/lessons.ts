@@ -40,6 +40,12 @@ export interface LessonStep {
   patternBlocks?: { color: string; label: string; notes: string[] }[];
   patternQuiz?: { phraseA: string[]; phraseB: string[]; answer: "same" | "different" }[];
   formBuilder?: { sectionA: string[]; sectionB: string[] };
+  // Capstone fields
+  capstoneInstrumentPicker?: boolean;
+  recorder?: boolean;
+  recorderKeys?: { note: string; label: string; color: string }[];
+  compositionPlayback?: boolean;
+  choicePicker?: { label: string; emoji: string; value: string }[];
 }
 
 export interface ReflectionPrompt {
@@ -722,6 +728,74 @@ const lesson9: LessonData = {
   },
 };
 
+// ─── LESSON 10: My Music — Capstone (6 steps, ~8 min) ────────────────────────
+// Concept: Tie everything together — choose instrument, set tempo, record phrases, compose!
+// Theory: Humanism (creative ownership) + Constructivism (synthesize prior knowledge)
+const lesson10: LessonData = {
+  name: "Lesson 10: My Music",
+  steps: [
+    // 0 — Watch: recap
+    {
+      type: "watch",
+      title: "You're a Musician! 🎉",
+      instruction: "Look how far you've come!",
+      content: "You can play notes (C, D, E, F, G), high and low, loud and soft, fast and slow. You've played songs and built patterns. Now it's time for the most exciting part — making YOUR OWN music!",
+    },
+    // 1 — Explore: instrument picker (persists choice)
+    {
+      type: "explore",
+      title: "Choose Your Sound! 🎶",
+      instruction: "Tap each instrument to hear it, then pick your FAVORITE — that's the sound for your song!",
+      instruments: INSTRUMENT_CARDS,
+      minTaps: 5,
+      pickFavorite: true,
+      capstoneInstrumentPicker: true,
+    },
+    // 2 — Explore: tempo slider + velocity piano
+    {
+      type: "explore",
+      title: "Set the Stage! 🎚️",
+      instruction: "Pick your speed and try playing soft and loud!",
+      notes: CDEFG_KEYS,
+      tempoSlider: true,
+      tempoRange: [60, 180],
+      tempoSliderMinMoves: 2,
+      velocitySensitive: true,
+      minTaps: 6,
+    },
+    // 3 — Explore: recorder + form builder
+    {
+      type: "explore",
+      title: "Compose! 🎵",
+      instruction: "Record two musical ideas (A and B), then arrange them into YOUR song!",
+      recorder: true,
+      recorderKeys: CDEFG_KEYS,
+      minTaps: 0,
+    },
+    // 4 — Listen: composition playback
+    {
+      type: "listen",
+      title: "Listen to Your Song! 🎧",
+      instruction: "Tap Play to hear your composition!",
+      content: "This is YOUR music — you chose the instrument, the speed, and every note. You're a composer now!",
+      compositionPlayback: true,
+    },
+    // 5 — Explore: what's next
+    {
+      type: "explore",
+      title: "What's Next? 🚀",
+      instruction: "You've completed all the lessons! What do you want to do next?",
+      choicePicker: [
+        { label: "Learn more notes!", emoji: "🎹", value: "more_notes" },
+        { label: "Try harder rhythms!", emoji: "🥁", value: "harder_rhythms" },
+        { label: "Make another song!", emoji: "✨", value: "another_song" },
+      ],
+      minTaps: 0,
+    },
+  ],
+  reflections: {},
+};
+
 // ─── LESSON REGISTRY ─────────────────────────────────────────────────────────
 export const LESSONS: Record<string, LessonData> = {
   "1": lesson1,
@@ -733,4 +807,5 @@ export const LESSONS: Record<string, LessonData> = {
   "7": lesson7,
   "8": lesson8,
   "9": lesson9,
+  "10": lesson10,
 };

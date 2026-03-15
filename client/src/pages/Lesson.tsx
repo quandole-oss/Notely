@@ -28,6 +28,7 @@ const LESSON_FUN_FACTS: Record<string, string> = {
   "7": "In music, soft is called 'piano' and loud is called 'forte' — that's how the piano got its full name: pianoforte!",
   "8": "The fastest song ever recorded has over 1,000 beats per minute — way too fast to dance to!",
   "9": "Most pop songs follow the same pattern: verse, chorus, verse, chorus, bridge, chorus!",
+  "10": "Mozart wrote his first composition when he was just 5 years old — and you're composing right now!",
 };
 
 export default function Lesson() {
@@ -98,6 +99,17 @@ export default function Lesson() {
   const [patternBlockIdx, setPatternBlockIdx] = useState<number | null>(null);
   const [patternQuizQuestion, setPatternQuizQuestion] = useState(0);
   const [patternQuizHasPlayed, setPatternQuizHasPlayed] = useState(false);
+
+  // ─── Capstone / Recording state ──────────────────────────────────────
+  const [capstoneInstrument, setCapstoneInstrument] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTarget, setRecordingTarget] = useState<"A" | "B">("A");
+  const [phraseA, setPhraseA] = useState<{ note: string; velocity: number; time: number }[]>([]);
+  const [phraseB, setPhraseB] = useState<{ note: string; velocity: number; time: number }[]>([]);
+  const [compositionForm, setCompositionForm] = useState<("A" | "B")[]>([]);
+  const [compositionPlaying, setCompositionPlaying] = useState(false);
+  const recordStartRef = useRef<number>(0);
+  const [capstoneChoice, setCapstoneChoice] = useState<string | null>(null);
   const [formSequence, setFormSequence] = useState<("A" | "B")[]>([]);
   const [formPlaying, setFormPlaying] = useState(false);
 
@@ -413,6 +425,102 @@ export default function Lesson() {
     setFormSequence([]);
   };
 
+  // ─── Capstone: record start/stop ────────────────────────────────────────
+  const handleRecordStart = (target: "A" | "B") => {
+    if (target === "A") setPhraseA([]);
+    else setPhraseB([]);
+    setRecordingTarget(target);
+    setIsRecording(true);
+    recordStartRef.current = Date.now();
+  };
+
+  const handleRecordStop = () => {
+    setIsRecording(false);
+  };
+
+  // ─── Capstone: note tap (velocity + instrument aware) ──────────────────
+  const handleCapstoneNoteTap = (noteObj: { note: string }, event?: React.MouseEvent | React.TouchEvent) => {
+    noteCountRef.current += 1;
+    let velocity = 0.7;
+    if (event) {
+      const target = event.currentTarget as HTMLElement;
+      const rect = target.getBoundingClientRect();
+      let clientY: number;
+      if ("touches" in event) {
+        clientY = (event as React.TouchEvent).touches[0]?.clientY ?? rect.top + rect.height / 2;
+      } else {
+        clientY = (event as React.MouseEvent).clientY;
+      }
+      const ratio = (clientY - rect.top) / rect.height;
+      velocity = 0.2 + ratio * 0.7;
+    }
+    if (capstoneInstrument && capstoneInstrument !== "piano") {
+      playInstrumentNote(capstoneInstrument, noteObj.note + "4", 0.8);
+    } else {
+      playNote(noteObj.note, 1.0, velocity);
+    }
+    setLastVelocity(velocity);
+    setExploreTaps((prev) => prev + 1);
+    if (isRecording) {
+      const entry = { note: noteObj.note, velocity, time: Date.now() - recordStartRef.current };
+      if (recordingTarget === "A") setPhraseA((prev) => [...prev, entry]);
+      else setPhraseB((prev) => [...prev, entry]);
+    }
+  };
+
+  // ─── Capstone: composition form builder ─────────────────────────────────
+  const handleCompositionFormAdd = (section: "A" | "B") => {
+    if (compositionPlaying || compositionForm.length >= 6) return;
+    setCompositionForm((prev) => [...prev, section]);
+  };
+
+  const handleCompositionFormClear = () => {
+    if (compositionPlaying) return;
+    setCompositionForm([]);
+  };
+
+  // ─── Capstone: composition playback ─────────────────────────────────────
+  const handleCompositionPlay = () => {
+    if (compositionPlaying || compositionForm.length === 0) return;
+    setCompositionPlaying(true);
+    demoTimeoutsRef.current.forEach(clearTimeout);
+    demoTimeoutsRef.current = [];
+    const NOTE_GAP = 400;
+    const SECTION_GAP = 600;
+    let offset = 0;
+    compositionForm.forEach((section, secIdx) => {
+      const phrase = section === "A" ? phraseA : phraseB;
+      const tBlock = setTimeout(() => setPatternBlockIdx(secIdx), offset);
+      demoTimeoutsRef.current.push(tBlock);
+      if (phrase.length > 0) {
+        phrase.forEach((entry) => {
+          const t = setTimeout(() => {
+            if (capstoneInstrument && capstoneInstrument !== "piano") {
+              playInstrumentNote(capstoneInstrument, entry.note + "4", 0.8);
+            } else {
+              playNote(entry.note, 1.0, entry.velocity);
+            }
+          }, offset + entry.time);
+          demoTimeoutsRef.current.push(t);
+        });
+        const phraseDuration = phrase[phrase.length - 1].time + NOTE_GAP;
+        offset += phraseDuration + SECTION_GAP;
+      } else {
+        offset += SECTION_GAP;
+      }
+    });
+    const tEnd = setTimeout(() => { setCompositionPlaying(false); setPatternBlockIdx(null); }, offset);
+    demoTimeoutsRef.current.push(tEnd);
+  };
+
+  // ─── Capstone: choice handler ───────────────────────────────────────────
+  const handleCapstoneChoice = (value: string) => {
+    setCapstoneChoice(value);
+    const stored = JSON.parse(localStorage.getItem("notely_reflections") || "[]");
+    stored.push({ lessonId, stepIndex: currentStep, answer: value, timestamp: new Date().toISOString() });
+    localStorage.setItem("notely_reflections", JSON.stringify(stored));
+  };
+
   // ─── Drum pad tap handler ─────────────────────────────────────────────────
   const handleDrumPadTap = useCallback((pad: { id: string; sound: "kick" | "hihat" | "snare" }) => {
     noteCountRef.current += 1;
@@ -506,6 +614,23 @@ export default function Lesson() {
 
   // ─── Keyboard support ────────────────────────────────────────────────────────
   useEffect(() => {
+    // Capstone recorder + tempo+velocity keyboard support
+    if ((step.recorder && step.recorderKeys) || (capstoneInstrument && step.notes && step.velocitySensitive && step.tempoSlider)) {
+      const keys = step.recorderKeys ?? step.notes ?? [];
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        const note = KEY_TO_NOTE[e.key.toLowerCase()];
+        if (!note) return;
+        if (!keys.some((n) => n.note === note)) return;
+        const velocity = e.shiftKey ? 0.2 : 0.7;
+        setActiveKeyboardNote(note);
+        handleCapstoneNoteTap({ note });
+      };
+      const handleKeyUp = (e: KeyboardEvent) => { const note = KEY_TO_NOTE[e.key.toLowerCase()]; if (note) setActiveKeyboardNote(null); };
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
+      return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keyup", handleKeyUp); };
+    }
     // Drum pad keyboard support
     if (step.drumPads && !step.notes && !step.rhythmPatterns) {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -609,7 +734,7 @@ export default function Lesson() {
     window.addEventListener("keyup", handleKeyUp);
     return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keyup", handleKeyUp); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime, exploreTaps, handleDrumPadTap, handleRhythmInput, playDrumTap, sequencePosition, dynamicSceneInput, dynamicSceneRound, dynamicSceneRoundComplete]);
+  }, [step, playedNotes, isDemoPlaying, playNote, playSuccessChime, exploreTaps, handleDrumPadTap, handleRhythmInput, playDrumTap, sequencePosition, dynamicSceneInput, dynamicSceneRound, dynamicSceneRoundComplete, capstoneInstrument, isRecording, recordingTarget, phraseA, phraseB]);
 
   // ─── Background beat loop ────────────────────────────────────────────────────
   useEffect(() => {
@@ -695,6 +820,21 @@ export default function Lesson() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, patternQuizQuestion]);
+
+  // ─── Auto-stop recording after 8 seconds ──────────────────────────────────
+  useEffect(() => {
+    if (isRecording) {
+      const t = setTimeout(() => setIsRecording(false), 8000);
+      return () => clearTimeout(t);
+    }
+  }, [isRecording]);
+
+  // ─── Capstone: sync instrument from favorite picker ───────────────────────
+  useEffect(() => {
+    if (step.capstoneInstrumentPicker && favoriteInstrument) {
+      setCapstoneInstrument(favoriteInstrument);
+    }
+  }, [step.capstoneInstrumentPicker, favoriteInstrument]);
 
   // ─── Quiz handlers ─────────────────────────────────────────────────────────
   const handleQuizListen = (idx: number) => {
@@ -791,7 +931,11 @@ export default function Lesson() {
     setExploreTaps(0);
     setReflectionAnswer(null);
     setPreviewedOptions(new Set());
-    setFavoriteInstrument(null);
+    // Only reset favoriteInstrument if not capstone (persists across steps)
+    if (!step.capstoneInstrumentPicker) setFavoriteInstrument(null);
+    // Reset capstone recording-in-progress state
+    setIsRecording(false);
+    setCompositionPlaying(false);
     // Reset sequence state
     setSequencePosition(0);
     setSequenceErrorNote(null);
@@ -837,6 +981,12 @@ export default function Lesson() {
       const progress: Record<string, { completed: boolean; stars: number }> = JSON.parse(localStorage.getItem("notely_progress") || "{}");
       progress[lessonId] = { completed: true, stars: 3 };
       localStorage.setItem("notely_progress", JSON.stringify(progress));
+      // Reset all capstone state
+      setCapstoneInstrument(null);
+      setPhraseA([]);
+      setPhraseB([]);
+      setCompositionForm([]);
+      setCapstoneChoice(null);
       setLessonComplete(true);
     } else {
       setCurrentStep(currentStep + 1);
@@ -854,9 +1004,13 @@ export default function Lesson() {
   const canProceed =
     step.type === "watch" ||
     step.type === "listen" ||
+    (step.type === "explore" && step.recorder &&
+      phraseA.length >= 2 && phraseB.length >= 2 && compositionForm.length >= 2) ||
+    (step.type === "explore" && step.choicePicker && capstoneChoice !== null) ||
     (step.type === "explore" && step.formBuilder && formSequence.length >= 2 &&
       (!hasReflection || reflectionAnswer !== null)) ||
-    (step.type === "explore" && !step.formBuilder && exploreTaps >= (step.minTaps ?? 3) &&
+    (step.type === "explore" && !step.formBuilder && !step.recorder && !step.choicePicker &&
+      exploreTaps >= (step.minTaps ?? 3) &&
       (!step.pickFavorite || favoriteInstrument !== null) &&
       (!step.tempoSlider || tempoSliderMoves >= (step.tempoSliderMinMoves ?? 3)) &&
       (!hasReflection || reflectionAnswer !== null)) ||
@@ -959,9 +1113,12 @@ export default function Lesson() {
   // ─── Badge text ───────────────────────────────────────────────────────────────
   const getBadgeText = () => {
     if (step.type === "watch") return "👀 Watch";
+    if (step.type === "listen" && step.compositionPlayback) return "🎧 Listen";
     if (step.type === "listen") return step.drumPads ? "🥁 Listen" : "👂 Listen";
     if (step.type === "play") return step.rhythmPatterns ? "🥁 Play" : "🎹 Play";
     if (step.type === "explore") {
+      if (step.recorder) return "🎵 Compose";
+      if (step.choicePicker) return "🚀 Explore";
       if (step.formBuilder) return "🧩 Explore";
       if (step.tapAnywhere || step.drumPads) return "🥁 Explore";
       if (step.instruments) return "🎶 Explore";
@@ -1106,8 +1263,8 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Watch/Listen content (non-drum, non-tempo, non-pattern) */}
-        {(step.type === "watch" || (step.type === "listen" && !step.drumPads && !step.tempoListenDemo && !step.patternBlocks)) && (
+        {/* Watch/Listen content (non-drum, non-tempo, non-pattern, non-composition) */}
+        {(step.type === "watch" || (step.type === "listen" && !step.drumPads && !step.tempoListenDemo && !step.patternBlocks && !step.compositionPlayback)) && (
           <div className="animate-slide-up">
             <div className="rounded-3xl overflow-hidden mb-5 relative cursor-pointer" style={{ height: "200px" }} onClick={step.type === "listen" ? handleListenPreview : undefined}>
               <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663422386160/FwxdRn7gyJEfzV8667mpvP/lesson-bg-Cen66WZRxYbX8NVgUd7ZgM.webp" alt="Music lesson" className="w-full h-full object-cover" />
@@ -1315,8 +1472,8 @@ export default function Lesson() {
           return null;
         })()}
 
-        {/* ─── Explore: velocity-sensitive keys ─────────────────────────── */}
-        {step.type === "explore" && step.velocitySensitive && step.notes && (
+        {/* ─── Explore: velocity-sensitive keys (non-tempo, non-recorder) ─ */}
+        {step.type === "explore" && step.velocitySensitive && step.notes && !step.tempoSlider && !step.recorder && (
           <div className="animate-slide-up">
             {/* Gradient hint tip */}
             <p className="text-center text-sm mb-4" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1579,21 +1736,27 @@ export default function Lesson() {
               ))}
             </div>
 
-            {/* Piano keys (DJ Mode — step 5) */}
+            {/* Piano keys (DJ Mode / Capstone tempo+velocity) */}
             {step.notes && (
               <>
+                {step.velocitySensitive && (
+                  <p className="text-center text-sm mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+                    Tap near the <strong>top</strong> of a key = soft &nbsp;|&nbsp; <strong>bottom</strong> = loud
+                  </p>
+                )}
                 <div className="flex justify-center gap-3 mb-4 flex-wrap">
                   {step.notes.map((note, idx) => {
                     const isKeyboardActive = activeKeyboardNote === note.note;
+                    const useVelocity = !!step.velocitySensitive;
                     return (
                       <button
                         key={`${note.note}-${idx}`}
-                        onClick={() => handleExploreTap(note)}
+                        onClick={(e) => useVelocity ? handleCapstoneNoteTap(note, e) : handleExploreTap(note)}
                         className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
                         style={{
                           width: "4.5rem",
                           height: "7rem",
-                          background: isKeyboardActive ? note.color : "white",
+                          background: isKeyboardActive ? note.color : useVelocity ? `linear-gradient(to bottom, ${note.color}22, ${note.color})` : "white",
                           border: `4px solid ${note.color}`,
                           color: isKeyboardActive ? "white" : note.color,
                           transform: isKeyboardActive ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
@@ -1751,8 +1914,8 @@ export default function Lesson() {
           );
         })()}
 
-        {/* Explore exercise (piano notes — non-velocity, non-tempo) */}
-        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && !step.tempoSlider && step.notes && (
+        {/* Explore exercise (piano notes — non-velocity, non-tempo, non-recorder) */}
+        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && !step.tempoSlider && !step.recorder && !step.choicePicker && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               {step.notes.map((note, idx) => {
@@ -1888,6 +2051,265 @@ export default function Lesson() {
               >
                 Clear
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Explore: recorder + form builder (Capstone step 3) ─────── */}
+        {step.type === "explore" && step.recorder && step.recorderKeys && (
+          <div className="animate-slide-up">
+            {/* Phrase cards */}
+            <div className="flex justify-center gap-4 mb-5">
+              {(["A", "B"] as const).map((label) => {
+                const phrase = label === "A" ? phraseA : phraseB;
+                const color = label === "A" ? "#4AABF5" : "#FF5C35";
+                const isTarget = isRecording && recordingTarget === label;
+                return (
+                  <div key={label} className="flex flex-col items-center gap-2 rounded-2xl p-4 transition-all duration-200"
+                    style={{
+                      width: "9rem",
+                      background: isTarget ? `${color}15` : "white",
+                      border: `3px solid ${isTarget ? color : phrase.length >= 2 ? "#3ECFA4" : "#E5DDD0"}`,
+                    }}>
+                    <span className="text-2xl font-display font-800" style={{ color, fontFamily: "'Baloo 2', cursive" }}>{label}</span>
+                    {phrase.length > 0 ? (
+                      <>
+                        <span className="text-sm font-display font-700" style={{ color: "#3ECFA4", fontFamily: "'Baloo 2', cursive" }}>
+                          {phrase.length} notes {phrase.length >= 2 ? "✓" : ""}
+                        </span>
+                        {!isRecording && (
+                          <button onClick={() => handleRecordStart(label)}
+                            className="text-xs underline" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+                            Re-record
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button onClick={() => handleRecordStart(label)}
+                        disabled={isRecording}
+                        className="px-3 py-1.5 rounded-xl text-sm font-display font-700 transition-all select-none"
+                        style={{
+                          background: isRecording ? "#E5DDD0" : color,
+                          color: isRecording ? "#999" : "white",
+                          fontFamily: "'Baloo 2', cursive",
+                        }}>
+                        Record
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Recording indicator */}
+            {isRecording && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mb-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-3 h-3 rounded-full" style={{ background: "#FF5C35", animation: "notely-beat-pulse 0.8s ease-in-out infinite" }} />
+                  <span className="font-display font-700 text-base" style={{ color: "#FF5C35", fontFamily: "'Baloo 2', cursive" }}>
+                    Recording {recordingTarget}...
+                  </span>
+                </div>
+                <div className="w-48 h-2 rounded-full overflow-hidden" style={{ background: "#E5DDD0" }}>
+                  <motion.div
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 8, ease: "linear" }}
+                    className="h-full rounded-full"
+                    style={{ background: recordingTarget === "A" ? "#4AABF5" : "#FF5C35" }}
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Velocity-sensitive piano keys */}
+            <div className="flex justify-center gap-3 mb-4 flex-wrap">
+              {step.recorderKeys.map((note, idx) => {
+                const isKeyboardActive = activeKeyboardNote === note.note;
+                return (
+                  <button
+                    key={`${note.note}-${idx}`}
+                    onClick={(e) => handleCapstoneNoteTap(note, e)}
+                    className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none"
+                    style={{
+                      width: "4.5rem",
+                      height: "7rem",
+                      background: isKeyboardActive ? note.color : `linear-gradient(to bottom, ${note.color}22, ${note.color})`,
+                      border: `4px solid ${note.color}`,
+                      color: isKeyboardActive ? "white" : note.color,
+                      transform: isKeyboardActive ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                      boxShadow: isKeyboardActive ? `0 2px 0 ${note.color}88` : `0 6px 0 ${note.color}55`,
+                    }}
+                  >
+                    <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                    <span className="text-sm font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stop button */}
+            {isRecording && (
+              <div className="flex justify-center mb-5">
+                <button onClick={handleRecordStop}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl font-display font-700 text-base select-none"
+                  style={{ background: "#FF5C35", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(255,92,53,0.4)" }}>
+                  ⏹ Stop Recording
+                </button>
+              </div>
+            )}
+
+            {/* Form builder — appears once both phrases have ≥2 notes */}
+            {phraseA.length >= 2 && phraseB.length >= 2 && !isRecording && (
+              <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+                <p className="text-center font-display font-700 text-base mb-3" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>
+                  Arrange your song!
+                </p>
+                {/* Add section buttons */}
+                <div className="flex justify-center gap-4 mb-4">
+                  <button onClick={() => handleCompositionFormAdd("A")}
+                    disabled={compositionPlaying || compositionForm.length >= 6}
+                    className="flex flex-col items-center justify-center rounded-2xl transition-all duration-150 shadow-lg select-none"
+                    style={{ width: "5rem", height: "5rem", background: compositionPlaying || compositionForm.length >= 6 ? "#E5DDD0" : "#4AABF5", color: "white", boxShadow: compositionPlaying || compositionForm.length >= 6 ? "none" : "0 6px 0 rgba(74,171,245,0.4)" }}>
+                    <span className="text-2xl font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>A</span>
+                    <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>Add A</span>
+                  </button>
+                  <button onClick={() => handleCompositionFormAdd("B")}
+                    disabled={compositionPlaying || compositionForm.length >= 6}
+                    className="flex flex-col items-center justify-center rounded-2xl transition-all duration-150 shadow-lg select-none"
+                    style={{ width: "5rem", height: "5rem", background: compositionPlaying || compositionForm.length >= 6 ? "#E5DDD0" : "#FF5C35", color: "white", boxShadow: compositionPlaying || compositionForm.length >= 6 ? "none" : "0 6px 0 rgba(255,92,53,0.4)" }}>
+                    <span className="text-2xl font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>B</span>
+                    <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>Add B</span>
+                  </button>
+                </div>
+                {/* Sequence display */}
+                <div className="flex justify-center gap-2 mb-3 min-h-[3rem] items-center">
+                  {compositionForm.length === 0 ? (
+                    <p className="text-sm text-gray-400" style={{ fontFamily: "'DM Sans', sans-serif" }}>Tap A or B to arrange!</p>
+                  ) : (
+                    compositionForm.map((section, idx) => (
+                      <motion.div key={idx} initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-display font-800 text-base transition-all duration-200"
+                        style={{
+                          background: section === "A" ? "#4AABF5" : "#FF5C35",
+                          fontFamily: "'Baloo 2', cursive",
+                          transform: patternBlockIdx === idx ? "scale(1.2)" : "scale(1)",
+                          boxShadow: patternBlockIdx === idx ? `0 0 16px ${section === "A" ? "#4AABF588" : "#FF5C3588"}` : "none",
+                        }}>
+                        {section}
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+                <p className="text-center text-sm font-display font-700 mb-3" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+                  {compositionForm.length} / 6 sections
+                </p>
+                {/* Play + Clear */}
+                <div className="flex justify-center gap-3 mb-4">
+                  <button onClick={handleCompositionPlay}
+                    disabled={compositionForm.length === 0 || compositionPlaying}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm select-none"
+                    style={{ background: compositionForm.length === 0 || compositionPlaying ? "#E5DDD0" : "#3ECFA4", color: compositionForm.length === 0 || compositionPlaying ? "#999" : "white", fontFamily: "'Baloo 2', cursive", boxShadow: compositionForm.length === 0 || compositionPlaying ? "none" : "0 4px 0 rgba(62,207,164,0.4)" }}>
+                    <span className="text-lg">{compositionPlaying ? "🎵" : "▶️"}</span>
+                    {compositionPlaying ? "Playing..." : "Play"}
+                  </button>
+                  <button onClick={handleCompositionFormClear}
+                    disabled={compositionForm.length === 0 || compositionPlaying}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm select-none"
+                    style={{ background: compositionForm.length === 0 || compositionPlaying ? "#E5DDD0" : "#E0E0E0", color: compositionForm.length === 0 || compositionPlaying ? "#999" : "#666", fontFamily: "'Baloo 2', cursive" }}>
+                    Clear
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Listen: composition playback (Capstone step 4) ────────────── */}
+        {step.type === "listen" && step.compositionPlayback && (
+          <div className="animate-slide-up">
+            {/* Form sequence visualization */}
+            <div className="flex justify-center gap-3 mb-6">
+              {compositionForm.length > 0 ? compositionForm.map((section, idx) => (
+                <div key={idx}
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-display font-800 text-xl transition-all duration-200"
+                  style={{
+                    background: section === "A" ? "#4AABF5" : "#FF5C35",
+                    fontFamily: "'Baloo 2', cursive",
+                    transform: patternBlockIdx === idx ? "scale(1.2)" : "scale(1)",
+                    boxShadow: patternBlockIdx === idx ? `0 0 20px ${section === "A" ? "#4AABF588" : "#FF5C3588"}` : `0 4px 0 ${section === "A" ? "#4AABF555" : "#FF5C3555"}`,
+                  }}>
+                  {section}
+                </div>
+              )) : (
+                <p className="text-sm text-gray-400" style={{ fontFamily: "'DM Sans', sans-serif" }}>No composition yet — go back and compose!</p>
+              )}
+            </div>
+
+            {/* Music note animation during playback */}
+            {compositionPlaying && (
+              <div className="flex justify-center mb-4">
+                <motion.span animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 0.6 }} className="text-4xl">
+                  🎵
+                </motion.span>
+              </div>
+            )}
+
+            {/* Play button */}
+            <div className="flex justify-center mb-5">
+              <button onClick={handleCompositionPlay}
+                disabled={compositionPlaying || compositionForm.length === 0}
+                className="flex items-center gap-2 px-8 py-4 rounded-2xl font-display font-700 text-lg select-none transition-all duration-200"
+                style={{
+                  background: compositionPlaying || compositionForm.length === 0 ? "#E5DDD0" : "#3ECFA4",
+                  color: compositionPlaying || compositionForm.length === 0 ? "#999" : "white",
+                  fontFamily: "'Baloo 2', cursive",
+                  boxShadow: compositionPlaying || compositionForm.length === 0 ? "none" : "0 6px 0 rgba(62,207,164,0.4)",
+                }}>
+                <span className="text-2xl">{compositionPlaying ? "🎵" : "▶️"}</span>
+                {compositionPlaying ? "Playing Your Song..." : "Play My Song!"}
+              </button>
+            </div>
+
+            {/* Content card */}
+            <div className="card-notely p-5 mb-4">
+              <p className="text-base text-gray-700 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{step.content}</p>
+            </div>
+
+            {/* Go back link */}
+            <div className="flex justify-center">
+              <button onClick={() => setCurrentStep(3)}
+                className="text-sm underline" style={{ color: "#4AABF5", fontFamily: "'DM Sans', sans-serif" }}>
+                Go back and change something
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Explore: choice picker (Capstone step 5) ──────────────────── */}
+        {step.type === "explore" && step.choicePicker && (
+          <div className="animate-slide-up">
+            <div className="flex flex-col gap-3">
+              {step.choicePicker.map((choice) => {
+                const isSelected = capstoneChoice === choice.value;
+                return (
+                  <button key={choice.value} onClick={() => handleCapstoneChoice(choice.value)}
+                    className="card-notely p-5 flex items-center gap-4 text-left transition-all duration-200 select-none"
+                    style={{
+                      background: isSelected ? "#FFB800" : "white",
+                      border: isSelected ? "3px solid #FFB800" : "3px solid #E5DDD0",
+                      color: isSelected ? "white" : "#1A1A2E",
+                    }}>
+                    <span className="text-4xl">{choice.emoji}</span>
+                    <span className="font-display font-700 text-lg flex-1" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                      {choice.label}
+                    </span>
+                    {isSelected && (
+                      <span className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm" style={{ color: "#FFB800" }}>✓</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
