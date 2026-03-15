@@ -22,38 +22,38 @@ interface SkillNode {
 // 10 nodes forming a musical note (♪) shape
 // Notehead (tilted oval) offset LEFT of the stem, stem rises from right edge, flag swoops right then down
 const SKILL_NODES: SkillNode[] = [
-  // Notehead (tilted oval, offset left of stem)
-  { id: "n1",  lessonId: "1",  title: "Meet the Instruments", emoji: "🎶", color: "#9C27B0", description: "Discover instruments and their sounds!", x: 32, y: 88 },
-  { id: "n2",  lessonId: "2",  title: "Meet the Piano",       emoji: "🎹", color: "#FFB800", description: "Learn the piano keys and their names", x: 18, y: 80 },
-  { id: "n3",  lessonId: "3",  title: "High and Low",         emoji: "📏", color: "#4AABF5", description: "Explore high and low sounds", x: 44, y: 80 },
-  { id: "n4",  lessonId: "4",  title: "Your First Notes",     emoji: "🎵", color: "#FF5C35", description: "Play C, D, and E on the keyboard!", x: 44, y: 70 },
-  // Stem (rises from right side of notehead)
+  // Notehead (wide tilted oval, offset left of stem) — 4 nodes
+  { id: "n1",  lessonId: "1",  title: "Meet the Instruments", emoji: "🎶", color: "#9C27B0", description: "Discover instruments and their sounds!", x: 14, y: 84 },
+  { id: "n2",  lessonId: "2",  title: "Meet the Piano",       emoji: "🎹", color: "#FFB800", description: "Learn the piano keys and their names", x: 29, y: 92 },
+  { id: "n3",  lessonId: "3",  title: "High and Low",         emoji: "📏", color: "#4AABF5", description: "Explore high and low sounds", x: 29, y: 76 },
+  { id: "n4",  lessonId: "4",  title: "Your First Notes",     emoji: "🎵", color: "#FF5C35", description: "Play C, D, and E on the keyboard!", x: 44, y: 84 },
+  // Stem (straight vertical at x=44) — 2 nodes
   { id: "n5",  lessonId: "5",  title: "Rhythm & Beat",        emoji: "🥁", color: "#3ECFA4", description: "Feel the beat and clap along!", x: 44, y: 58 },
-  { id: "n6",  lessonId: "6",  title: "Your First Song",      emoji: "⭐", color: "#FFB800", description: "Play your very first complete song!", x: 44, y: 46 },
-  { id: "n7",  lessonId: "7",  title: "Loud and Soft",        emoji: "🔊", color: "#9C27B0", description: "Learn about dynamics in music", x: 44, y: 34 },
-  { id: "n8",  lessonId: "8",  title: "Fast and Slow",        emoji: "🐇", color: "#FF5C35", description: "Explore tempo — fast and slow!", x: 44, y: 20 },
-  // Flag (swoops right from stem top, then curves down)
-  { id: "n9",  lessonId: "9",  title: "Patterns in Music",    emoji: "🧩", color: "#9C27B0", description: "Discover musical patterns and form", x: 58, y: 14 },
-  { id: "n10", lessonId: "10", title: "My Music",             emoji: "🎉", color: "#FFB800", description: "Create your own musical composition!", x: 54, y: 40 },
+  { id: "n6",  lessonId: "6",  title: "Your First Song",      emoji: "⭐", color: "#FFB800", description: "Play your very first complete song!", x: 44, y: 38 },
+  // Flag (arc from stem top, curving right and swooping down) — 4 nodes
+  { id: "n7",  lessonId: "7",  title: "Loud and Soft",        emoji: "🔊", color: "#9C27B0", description: "Learn about dynamics in music", x: 44, y: 22 },
+  { id: "n8",  lessonId: "8",  title: "Fast and Slow",        emoji: "🐇", color: "#FF5C35", description: "Explore tempo — fast and slow!", x: 50, y: 14 },
+  { id: "n9",  lessonId: "9",  title: "Patterns in Music",    emoji: "🧩", color: "#9C27B0", description: "Discover musical patterns and form", x: 58, y: 16 },
+  { id: "n10", lessonId: "10", title: "My Music",             emoji: "🎉", color: "#FFB800", description: "Create your own musical composition!", x: 64, y: 28 },
 ];
 
 // Curved connections forming the ♪ outline
 // Each has a quadratic bezier control point (cx, cy) to shape the curve
 // Notehead: bulges outward to form tilted oval | Stem: straight | Flag: swoop right then down
 const CONNECTIONS: { from: string; to: string; cx: number; cy: number }[] = [
-  // Notehead oval — curves bulge outward from the tilted oval edges
-  { from: "n1", to: "n2", cx: 18, cy: 88 },   // bottom-left arc
-  { from: "n1", to: "n3", cx: 44, cy: 88 },   // bottom-right arc
-  { from: "n2", to: "n4", cx: 18, cy: 72 },   // top-left arc
-  { from: "n3", to: "n4", cx: 48, cy: 75 },   // right side slight curve
+  // Notehead oval — curves bulge outward forming tilted oval
+  { from: "n1", to: "n2", cx: 14, cy: 92 },   // bottom-left arc
+  { from: "n2", to: "n4", cx: 44, cy: 92 },   // bottom-right arc
+  { from: "n1", to: "n3", cx: 14, cy: 76 },   // top-left arc
+  { from: "n3", to: "n4", cx: 44, cy: 76 },   // top-right arc
   // Stem — straight vertical (control points at midpoints)
-  { from: "n4", to: "n5", cx: 44, cy: 64 },
-  { from: "n5", to: "n6", cx: 44, cy: 52 },
-  { from: "n6", to: "n7", cx: 44, cy: 40 },
-  { from: "n7", to: "n8", cx: 44, cy: 27 },
-  // Flag — swoops right then curves dramatically down
-  { from: "n8", to: "n9", cx: 56, cy: 12 },   // curves right and up
-  { from: "n9", to: "n10", cx: 66, cy: 18 },  // wide swoop back down
+  { from: "n4", to: "n5", cx: 44, cy: 71 },
+  { from: "n5", to: "n6", cx: 44, cy: 48 },
+  // Flag — swoops right from stem top, curving up then down
+  { from: "n6", to: "n7", cx: 44, cy: 30 },   // top of stem
+  { from: "n7", to: "n8", cx: 48, cy: 14 },   // curves up-right
+  { from: "n8", to: "n9", cx: 56, cy: 12 },   // continues right at apex
+  { from: "n9", to: "n10", cx: 66, cy: 16 },  // swoops down-right
 ];
 
 type NodeStatus = "completed" | "current" | "locked";
