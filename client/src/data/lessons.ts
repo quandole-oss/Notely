@@ -36,6 +36,10 @@ export interface LessonStep {
   pulseGuide?: { bpm: number }; // visual metronome for guided play
   tempoQuiz?: { sequence: string[]; bpm: number; answer: "fast" | "slow" }[];
   tempoListenDemo?: { slowBpm: number; fastBpm: number; sequence: string[] };
+  // Pattern / Form lesson fields
+  patternBlocks?: { color: string; label: string; notes: string[] }[];
+  patternQuiz?: { phraseA: string[]; phraseB: string[]; answer: "same" | "different" }[];
+  formBuilder?: { sectionA: string[]; sectionB: string[] };
 }
 
 export interface ReflectionPrompt {
@@ -628,6 +632,96 @@ const lesson8: LessonData = {
   },
 };
 
+// ─── Key sets ────────────────────────────────────────────────────────────────
+const CDEFG_KEYS = [
+  { note: "C", label: "C", color: "#FFB800" },
+  { note: "D", label: "D", color: "#FF5C35" },
+  { note: "E", label: "E", color: "#4AABF5" },
+  { note: "F", label: "F", color: "#3ECFA4" },
+  { note: "G", label: "G", color: "#9C27B0" },
+];
+
+// ─── LESSON 9: Patterns in Music (7 steps, ~7 min) ──────────────────────────
+// Concept: Musical form — music is built from repeating (A-A) and contrasting (A-B) sections
+// Theory: Constructivism (hear before label) + Experiential (build your own form)
+const lesson9: LessonData = {
+  name: "Lesson 9: Patterns in Music",
+  steps: [
+    // 0 — Listen: hear A-A pattern (repeating)
+    {
+      type: "listen",
+      title: "Spot the Pattern! 🔵🔵",
+      instruction: "Tap to hear two parts. Do they sound the SAME or DIFFERENT?",
+      content: "Music loves patterns! Sometimes a part repeats — the same melody plays twice. That's called an A-A pattern. It feels familiar and safe, like hearing your favorite line of a song again!",
+      patternBlocks: [
+        { color: "#4AABF5", label: "A", notes: ["C", "E", "G", "E"] },
+        { color: "#4AABF5", label: "A", notes: ["C", "E", "G", "E"] },
+      ],
+    },
+    // 1 — Listen: hear A-B pattern (contrasting)
+    {
+      type: "listen",
+      title: "Something New! 🔵🟠",
+      instruction: "Now listen to these two parts. Are they the same or different?",
+      content: "Sometimes music changes! Part A sounds one way, then Part B sounds different. That's an A-B pattern. The contrast makes music exciting — like a story with a twist!",
+      patternBlocks: [
+        { color: "#4AABF5", label: "A", notes: ["C", "E", "G", "E"] },
+        { color: "#FF5C35", label: "B", notes: ["D", "F", "D", "C"] },
+      ],
+    },
+    // 2 — Watch: explain musical form
+    {
+      type: "watch",
+      title: "Music Has Shapes! 🧩",
+      instruction: "Let's learn about the shape of music!",
+      content: "Every song is built from sections — like building blocks! Section A is one musical idea. Section B is a different idea. When you put them together in patterns like A-A-B-A, you create a FORM — the shape of a whole song! Most songs you know use these simple patterns.",
+    },
+    // 3 — Quiz: same or different (4 rounds)
+    {
+      type: "quiz",
+      title: "Same or Different? 🤔",
+      instruction: "Listen to two phrases. Are they the SAME or DIFFERENT?",
+      patternQuiz: [
+        { phraseA: ["C", "E", "G"], phraseB: ["C", "E", "G"], answer: "same" },
+        { phraseA: ["C", "D", "E"], phraseB: ["E", "D", "C"], answer: "different" },
+        { phraseA: ["D", "F", "D"], phraseB: ["D", "F", "D"], answer: "same" },
+        { phraseA: ["C", "E", "G", "E"], phraseB: ["D", "F", "D", "C"], answer: "different" },
+      ],
+    },
+    // 4 — Play: learn Part A (guided sequence)
+    {
+      type: "play",
+      title: "Learn Part A 🔵",
+      instruction: "Play the A section: C-E-G-E. Follow the glowing notes!",
+      notes: CDEFG_KEYS,
+      sequence: ["C", "E", "G", "E"],
+    },
+    // 5 — Play: learn Part B (guided sequence)
+    {
+      type: "play",
+      title: "Learn Part B 🟠",
+      instruction: "Now play the B section: D-F-D-C. It sounds different from A!",
+      notes: CDEFG_KEYS,
+      sequence: ["D", "F", "D", "C"],
+    },
+    // 6 — Explore: form builder
+    {
+      type: "explore",
+      title: "Build Your Song! 🧩",
+      instruction: "Use A and B blocks to build your own song pattern! Add at least 2 sections, then hit Play to hear your creation!",
+      formBuilder: { sectionA: ["C", "E", "G", "E"], sectionB: ["D", "F", "D", "C"] },
+      minTaps: 0,
+    },
+  ],
+  reflections: {
+    6: {
+      prompt: "What pattern did you like best?",
+      optionA: { label: "Same parts (A-A) feel good! 🔵🔵", value: "repeat" },
+      optionB: { label: "Different parts (A-B) are fun! 🔵🟠", value: "contrast" },
+    },
+  },
+};
+
 // ─── LESSON REGISTRY ─────────────────────────────────────────────────────────
 export const LESSONS: Record<string, LessonData> = {
   "1": lesson1,
@@ -638,4 +732,5 @@ export const LESSONS: Record<string, LessonData> = {
   "6": lesson6,
   "7": lesson7,
   "8": lesson8,
+  "9": lesson9,
 };

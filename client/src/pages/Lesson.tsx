@@ -17,6 +17,19 @@ const KEY_TO_NOTE: Record<string, string> = {
   a: "C", s: "D", d: "E", f: "F", g: "G", h: "A", j: "B",
 };
 
+// One fun fact per lesson, shown once on the first watch/listen step
+const LESSON_FUN_FACTS: Record<string, string> = {
+  "1": "The world's largest instrument is the pipe organ — some have over 10,000 pipes and fill an entire building!",
+  "2": "The piano has 88 keys! But you only need to learn 7 note names to understand all of them.",
+  "3": "The lowest note on a piano vibrates only 27 times per second, but the highest vibrates over 4,000!",
+  "4": "Note names go A through G, then start over — but most songs begin on C because it's the easiest key to find!",
+  "5": "Your heart beats about 100,000 times a day — it's the first rhythm you ever heard!",
+  "6": "'Hot Cross Buns' has been sung for over 200 years — and it only uses 3 notes!",
+  "7": "In music, soft is called 'piano' and loud is called 'forte' — that's how the piano got its full name: pianoforte!",
+  "8": "The fastest song ever recorded has over 1,000 beats per minute — way too fast to dance to!",
+  "9": "Most pop songs follow the same pattern: verse, chorus, verse, chorus, bridge, chorus!",
+};
+
 export default function Lesson() {
   const [, navigate] = useLocation();
   const [matched, params] = useRoute("/lesson/:id");
@@ -81,9 +94,21 @@ export default function Lesson() {
   const [dynamicsQuizQuestion, setDynamicsQuizQuestion] = useState(0);
   const [dynamicsQuizHasPlayed, setDynamicsQuizHasPlayed] = useState(false);
 
+  // ─── Pattern / Form state ──────────────────────────────────────────────
+  const [patternBlockIdx, setPatternBlockIdx] = useState<number | null>(null);
+  const [patternQuizQuestion, setPatternQuizQuestion] = useState(0);
+  const [patternQuizHasPlayed, setPatternQuizHasPlayed] = useState(false);
+  const [formSequence, setFormSequence] = useState<("A" | "B")[]>([]);
+  const [formPlaying, setFormPlaying] = useState(false);
+
   const step = lessonSteps[currentStep];
   const isLastStep = currentStep === lessonSteps.length - 1;
   const hasReflection = (step.type === "play" || step.type === "explore") && reflectionPrompts[currentStep] !== undefined;
+
+  // Show fun fact only on the first watch or listen step of each lesson
+  const funFact = LESSON_FUN_FACTS[lessonId];
+  const firstWatchListenIdx = lessonSteps.findIndex((s) => s.type === "watch" || s.type === "listen");
+  const showFunFact = !!funFact && currentStep === firstWatchListenIdx;
 
   // ─── Listen First: play all notes in sequence ───────────────────────────────
   const handleListenDemo = () => {
@@ -300,6 +325,92 @@ export default function Lesson() {
     setShowFeedback(true);
     if (correct) playSuccessChime();
     else playErrorSound();
+  };
+
+  // ─── Pattern blocks demo: play all blocks sequentially ─────────────────
+  const handlePatternBlocksDemo = () => {
+    if (!step.patternBlocks || isDemoPlaying) return;
+    setIsDemoPlaying(true);
+    demoTimeoutsRef.current.forEach(clearTimeout);
+    demoTimeoutsRef.current = [];
+    const NOTE_GAP = 400;
+    const BLOCK_GAP = 600;
+    let offset = 0;
+    step.patternBlocks.forEach((block, blockIdx) => {
+      const tBlock = setTimeout(() => setPatternBlockIdx(blockIdx), offset);
+      demoTimeoutsRef.current.push(tBlock);
+      block.notes.forEach((note, noteIdx) => {
+        const t = setTimeout(() => playNote(note, 0.7), offset + noteIdx * NOTE_GAP);
+        demoTimeoutsRef.current.push(t);
+      });
+      offset += block.notes.length * NOTE_GAP + BLOCK_GAP;
+    });
+    const tEnd = setTimeout(() => { setIsDemoPlaying(false); setPatternBlockIdx(null); }, offset);
+    demoTimeoutsRef.current.push(tEnd);
+  };
+
+  // ─── Pattern quiz: play phrase A then phrase B ────────────────────────
+  const handlePatternQuizListen = () => {
+    if (!step.patternQuiz) return;
+    setPatternQuizHasPlayed(true);
+    const q = step.patternQuiz[patternQuizQuestion];
+    if (!q) return;
+    const GAP = 400;
+    q.phraseA.forEach((note, i) => {
+      setTimeout(() => playNote(note, 0.7), i * GAP);
+    });
+    const pauseEnd = q.phraseA.length * GAP + 800;
+    q.phraseB.forEach((note, i) => {
+      setTimeout(() => playNote(note, 0.7), pauseEnd + i * GAP);
+    });
+  };
+
+  // ─── Pattern quiz: select answer ──────────────────────────────────────
+  const handlePatternQuizSelect = (answer: "same" | "different") => {
+    if (showFeedback || !step.patternQuiz) return;
+    const q = step.patternQuiz[patternQuizQuestion];
+    const correct = answer === q.answer;
+    setSelectedOption(answer === "same" ? 0 : 1);
+    setFeedbackCorrect(correct);
+    setShowFeedback(true);
+    if (correct) playSuccessChime();
+    else playErrorSound();
+  };
+
+  // ─── Form builder: add section ────────────────────────────────────────
+  const handleFormBuilderAdd = (section: "A" | "B") => {
+    if (formPlaying || formSequence.length >= 6) return;
+    setFormSequence((prev) => [...prev, section]);
+    setExploreTaps((prev) => prev + 1);
+  };
+
+  // ─── Form builder: play sequence ──────────────────────────────────────
+  const handleFormBuilderPlay = () => {
+    if (!step.formBuilder || formPlaying || formSequence.length === 0) return;
+    setFormPlaying(true);
+    demoTimeoutsRef.current.forEach(clearTimeout);
+    demoTimeoutsRef.current = [];
+    const NOTE_GAP = 400;
+    const SECTION_GAP = 600;
+    let offset = 0;
+    formSequence.forEach((section, secIdx) => {
+      const notes = section === "A" ? step.formBuilder!.sectionA : step.formBuilder!.sectionB;
+      const tBlock = setTimeout(() => setPatternBlockIdx(secIdx), offset);
+      demoTimeoutsRef.current.push(tBlock);
+      notes.forEach((note, noteIdx) => {
+        const t = setTimeout(() => playNote(note, 0.7), offset + noteIdx * NOTE_GAP);
+        demoTimeoutsRef.current.push(t);
+      });
+      offset += notes.length * NOTE_GAP + SECTION_GAP;
+    });
+    const tEnd = setTimeout(() => { setFormPlaying(false); setPatternBlockIdx(null); }, offset);
+    demoTimeoutsRef.current.push(tEnd);
+  };
+
+  // ─── Form builder: clear ──────────────────────────────────────────────
+  const handleFormBuilderClear = () => {
+    if (formPlaying) return;
+    setFormSequence([]);
   };
 
   // ─── Drum pad tap handler ─────────────────────────────────────────────────
@@ -576,6 +687,15 @@ export default function Lesson() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, tempoQuizQuestion]);
 
+  // ─── Auto-play pattern quiz on entering quiz step / advancing question ────
+  useEffect(() => {
+    if (step.patternQuiz) {
+      const t = setTimeout(() => handlePatternQuizListen(), 500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, patternQuizQuestion]);
+
   // ─── Quiz handlers ─────────────────────────────────────────────────────────
   const handleQuizListen = (idx: number) => {
     if (showFeedback) return;
@@ -624,6 +744,16 @@ export default function Lesson() {
       setSelectedOption(null);
       setFeedbackCorrect(false);
       setTempoQuizHasPlayed(false);
+      return;
+    }
+
+    // Multi-question pattern quiz: advance to next question
+    if (step.patternQuiz && showFeedback && patternQuizQuestion < step.patternQuiz.length - 1) {
+      setPatternQuizQuestion((q) => q + 1);
+      setShowFeedback(false);
+      setSelectedOption(null);
+      setFeedbackCorrect(false);
+      setPatternQuizHasPlayed(false);
       return;
     }
 
@@ -692,6 +822,12 @@ export default function Lesson() {
     setDynamicSceneAllComplete(false);
     setDynamicsQuizQuestion(0);
     setDynamicsQuizHasPlayed(false);
+    // Reset pattern / form state
+    setPatternBlockIdx(null);
+    setPatternQuizQuestion(0);
+    setPatternQuizHasPlayed(false);
+    setFormSequence([]);
+    setFormPlaying(false);
     if (isLastStep) {
       playCelebration();
       const session = JSON.parse(localStorage.getItem("notely_session") || "{}");
@@ -718,7 +854,9 @@ export default function Lesson() {
   const canProceed =
     step.type === "watch" ||
     step.type === "listen" ||
-    (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3) &&
+    (step.type === "explore" && step.formBuilder && formSequence.length >= 2 &&
+      (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "explore" && !step.formBuilder && exploreTaps >= (step.minTaps ?? 3) &&
       (!step.pickFavorite || favoriteInstrument !== null) &&
       (!step.tempoSlider || tempoSliderMoves >= (step.tempoSliderMinMoves ?? 3)) &&
       (!hasReflection || reflectionAnswer !== null)) ||
@@ -729,10 +867,11 @@ export default function Lesson() {
     (step.type === "play" && !step.rhythmPatterns && !step.sequence && !step.dynamicScenes && step.notes &&
       playedNotes.length === step.notes.length &&
       (!hasReflection || reflectionAnswer !== null)) ||
+    (step.type === "quiz" && step.patternQuiz && showFeedback) ||
     (step.type === "quiz" && step.tempoQuiz && showFeedback) ||
     (step.type === "quiz" && step.dynamicsQuiz && showFeedback) ||
     (step.type === "quiz" && step.rhythmQuizOptions && showFeedback) ||
-    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && selectedOption !== null);
+    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && !step.patternQuiz && selectedOption !== null);
 
   // ─── Drum pad rendering helper ────────────────────────────────────────────
   const renderDrumPads = (onTap: (pad: NonNullable<LessonStep["drumPads"]>[number]) => void) => {
@@ -823,6 +962,7 @@ export default function Lesson() {
     if (step.type === "listen") return step.drumPads ? "🥁 Listen" : "👂 Listen";
     if (step.type === "play") return step.rhythmPatterns ? "🥁 Play" : "🎹 Play";
     if (step.type === "explore") {
+      if (step.formBuilder) return "🧩 Explore";
       if (step.tapAnywhere || step.drumPads) return "🥁 Explore";
       if (step.instruments) return "🎶 Explore";
       if (step.tempoSlider && !step.notes) return "🎚️ Explore";
@@ -919,8 +1059,55 @@ export default function Lesson() {
           </div>
         )}
 
-        {/* Watch/Listen content (non-drum, non-tempo) */}
-        {(step.type === "watch" || (step.type === "listen" && !step.drumPads && !step.tempoListenDemo)) && (
+        {/* ─── Listen: pattern blocks (A-A / A-B) ─────────────────── */}
+        {step.type === "listen" && step.patternBlocks && (
+          <div className="animate-slide-up">
+            {/* Colored blocks row */}
+            <div className="flex justify-center gap-4 mb-6">
+              {step.patternBlocks.map((block, idx) => (
+                <div
+                  key={idx}
+                  className="flex flex-col items-center justify-center rounded-2xl transition-all duration-200"
+                  style={{
+                    width: "5rem",
+                    height: "5rem",
+                    background: block.color,
+                    color: "white",
+                    transform: patternBlockIdx === idx ? "scale(1.2)" : "scale(1)",
+                    boxShadow: patternBlockIdx === idx ? `0 0 20px ${block.color}88` : `0 4px 0 ${block.color}55`,
+                  }}
+                >
+                  <span className="text-2xl font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{block.label}</span>
+                </div>
+              ))}
+            </div>
+            {/* Play button */}
+            <div className="flex justify-center mb-5">
+              <button
+                onClick={handlePatternBlocksDemo}
+                disabled={isDemoPlaying}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-display font-700 text-base transition-all duration-200 select-none"
+                style={{
+                  background: isDemoPlaying ? "#E5DDD0" : "#4AABF5",
+                  color: isDemoPlaying ? "#999" : "white",
+                  fontFamily: "'Baloo 2', cursive",
+                  boxShadow: isDemoPlaying ? "none" : "0 4px 0 rgba(74,171,245,0.4)",
+                  transform: isDemoPlaying ? "translateY(2px)" : "translateY(0)",
+                }}
+              >
+                <span className="text-lg">{isDemoPlaying ? "🎵" : "🔊"}</span>
+                {isDemoPlaying ? "Listening..." : "Hear It!"}
+              </button>
+            </div>
+            {/* Content card */}
+            <div className="card-notely p-5 mb-4">
+              <p className="text-base text-gray-700 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{step.content}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Watch/Listen content (non-drum, non-tempo, non-pattern) */}
+        {(step.type === "watch" || (step.type === "listen" && !step.drumPads && !step.tempoListenDemo && !step.patternBlocks)) && (
           <div className="animate-slide-up">
             <div className="rounded-3xl overflow-hidden mb-5 relative cursor-pointer" style={{ height: "200px" }} onClick={step.type === "listen" ? handleListenPreview : undefined}>
               <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663422386160/FwxdRn7gyJEfzV8667mpvP/lesson-bg-Cen66WZRxYbX8NVgUd7ZgM.webp" alt="Music lesson" className="w-full h-full object-cover" />
@@ -937,12 +1124,6 @@ export default function Lesson() {
             </div>
             <div className="card-notely p-5 mb-4">
               <p className="text-base text-gray-700 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{step.content}</p>
-            </div>
-            <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "#FFF8E1", border: "2px solid #FFB800" }}>
-              <span className="text-2xl">💡</span>
-              <p className="text-sm text-gray-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                <strong>Fun fact:</strong> The piano has 88 keys! But you only need to learn 7 note names to understand all of them.
-              </p>
             </div>
           </div>
         )}
@@ -1497,6 +1678,79 @@ export default function Lesson() {
           );
         })()}
 
+        {/* ─── Quiz: pattern quiz (same or different) ──────────────── */}
+        {step.type === "quiz" && step.patternQuiz && (() => {
+          const q = step.patternQuiz[patternQuizQuestion];
+          return (
+            <div className="animate-slide-up">
+              <p className="text-center text-sm font-display font-700 mb-4" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+                Question {patternQuizQuestion + 1} of {step.patternQuiz.length}
+              </p>
+
+              {/* Listen button */}
+              <div className="flex justify-center mb-5">
+                <button onClick={handlePatternQuizListen}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{ background: "#4AABF5", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(74,171,245,0.4)" }}>
+                  <span className="text-lg">👂</span>
+                  {patternQuizHasPlayed ? "Listen Again" : "Listen"}
+                </button>
+              </div>
+
+              {/* Answer cards */}
+              {patternQuizHasPlayed && !showFeedback && (
+                <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-center gap-4">
+                  <button onClick={() => handlePatternQuizSelect("same")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "9rem", background: "white", border: "3px solid #4AABF5" }}>
+                    <div className="flex gap-1">
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: "#4AABF5" }}>A</span>
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: "#4AABF5" }}>A</span>
+                    </div>
+                    <span className="font-display font-700 text-base" style={{ color: "#4AABF5", fontFamily: "'Baloo 2', cursive" }}>Same</span>
+                  </button>
+                  <button onClick={() => handlePatternQuizSelect("different")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "9rem", background: "white", border: "3px solid #FF5C35" }}>
+                    <div className="flex gap-1">
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: "#4AABF5" }}>A</span>
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: "#FF5C35" }}>B</span>
+                    </div>
+                    <span className="font-display font-700 text-base" style={{ color: "#FF5C35", fontFamily: "'Baloo 2', cursive" }}>Different</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Feedback */}
+              {showFeedback && (
+                <div className="flex justify-center gap-4 mb-3">
+                  {(["same", "different"] as const).map((ans, i) => {
+                    const isSelected = selectedOption === i;
+                    const isCorrect = q.answer === ans;
+                    let bg = "#E5DDD0"; let border = "#E5DDD0";
+                    if (isSelected && feedbackCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    else if (isSelected && !feedbackCorrect) { bg = "#FF5C35"; border = "#FF5C35"; }
+                    else if (isCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    return (
+                      <div key={ans} className="card-notely p-5 flex flex-col items-center gap-2"
+                        style={{ width: "9rem", background: bg, border: `3px solid ${border}`, color: isSelected || isCorrect ? "white" : "#999" }}>
+                        <div className="flex gap-1">
+                          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: ans === "same" ? "#4AABF5" : "#4AABF5" }}>A</span>
+                          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: ans === "same" ? "#4AABF5" : "#FF5C35" }}>{ans === "same" ? "A" : "B"}</span>
+                        </div>
+                        <span className="font-display font-700 text-base" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                          {ans === "same" ? "Same" : "Different"}
+                        </span>
+                        {(isSelected || isCorrect) && <span className="text-lg">{isCorrect ? "✓" : "✗"}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Explore exercise (piano notes — non-velocity, non-tempo) */}
         {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && !step.tempoSlider && step.notes && (
           <div className="animate-slide-up">
@@ -1536,6 +1790,104 @@ export default function Lesson() {
                   <kbd className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-xs font-mono">J</kbd>=B
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Explore: form builder (A/B sections) ─────────────────── */}
+        {step.type === "explore" && step.formBuilder && (
+          <div className="animate-slide-up">
+            {/* Add section buttons */}
+            <div className="flex justify-center gap-4 mb-5">
+              <button
+                onClick={() => handleFormBuilderAdd("A")}
+                disabled={formPlaying || formSequence.length >= 6}
+                className="flex flex-col items-center justify-center rounded-2xl transition-all duration-150 shadow-lg select-none"
+                style={{
+                  width: "6rem",
+                  height: "6rem",
+                  background: formPlaying || formSequence.length >= 6 ? "#E5DDD0" : "#4AABF5",
+                  color: "white",
+                  boxShadow: formPlaying || formSequence.length >= 6 ? "none" : "0 6px 0 rgba(74,171,245,0.4)",
+                }}
+              >
+                <span className="text-3xl font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>A</span>
+                <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>Add A</span>
+              </button>
+              <button
+                onClick={() => handleFormBuilderAdd("B")}
+                disabled={formPlaying || formSequence.length >= 6}
+                className="flex flex-col items-center justify-center rounded-2xl transition-all duration-150 shadow-lg select-none"
+                style={{
+                  width: "6rem",
+                  height: "6rem",
+                  background: formPlaying || formSequence.length >= 6 ? "#E5DDD0" : "#FF5C35",
+                  color: "white",
+                  boxShadow: formPlaying || formSequence.length >= 6 ? "none" : "0 6px 0 rgba(255,92,53,0.4)",
+                }}
+              >
+                <span className="text-3xl font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>B</span>
+                <span className="text-xs font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>Add B</span>
+              </button>
+            </div>
+
+            {/* Sequence display */}
+            <div className="flex justify-center gap-2 mb-4 min-h-[3.5rem] items-center">
+              {formSequence.length === 0 ? (
+                <p className="text-sm text-gray-400" style={{ fontFamily: "'DM Sans', sans-serif" }}>Tap A or B to start building!</p>
+              ) : (
+                formSequence.map((section, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-display font-800 text-lg transition-all duration-200"
+                    style={{
+                      background: section === "A" ? "#4AABF5" : "#FF5C35",
+                      fontFamily: "'Baloo 2', cursive",
+                      transform: patternBlockIdx === idx ? "scale(1.2)" : "scale(1)",
+                      boxShadow: patternBlockIdx === idx ? `0 0 16px ${section === "A" ? "#4AABF588" : "#FF5C3588"}` : "none",
+                    }}
+                  >
+                    {section}
+                  </motion.div>
+                ))
+              )}
+            </div>
+
+            {/* Counter */}
+            <p className="text-center text-sm font-display font-700 mb-4" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+              {formSequence.length} / 6 sections
+            </p>
+
+            {/* Play + Clear buttons */}
+            <div className="flex justify-center gap-3 mb-4">
+              <button
+                onClick={handleFormBuilderPlay}
+                disabled={formSequence.length === 0 || formPlaying}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                style={{
+                  background: formSequence.length === 0 || formPlaying ? "#E5DDD0" : "#3ECFA4",
+                  color: formSequence.length === 0 || formPlaying ? "#999" : "white",
+                  fontFamily: "'Baloo 2', cursive",
+                  boxShadow: formSequence.length === 0 || formPlaying ? "none" : "0 4px 0 rgba(62,207,164,0.4)",
+                }}
+              >
+                <span className="text-lg">{formPlaying ? "🎵" : "▶️"}</span>
+                {formPlaying ? "Playing..." : "Play"}
+              </button>
+              <button
+                onClick={handleFormBuilderClear}
+                disabled={formSequence.length === 0 || formPlaying}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                style={{
+                  background: formSequence.length === 0 || formPlaying ? "#E5DDD0" : "#E0E0E0",
+                  color: formSequence.length === 0 || formPlaying ? "#999" : "#666",
+                  fontFamily: "'Baloo 2', cursive",
+                }}
+              >
+                Clear
+              </button>
             </div>
           </div>
         )}
@@ -2011,8 +2363,25 @@ export default function Lesson() {
           </div>
         )}
 
+        {/* Feedback (pattern quiz) */}
+        {showFeedback && step.patternQuiz && (
+          <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
+            <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
+            <div>
+              <p className="font-display font-700" style={{ color: feedbackCorrect ? "#2E7D32" : "#E65100", fontFamily: "'Baloo 2', cursive" }}>
+                {feedbackCorrect ? "You heard it right!" : "Not quite!"}
+              </p>
+              <p className="text-sm text-gray-600" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {feedbackCorrect
+                  ? "Your ears are great at spotting patterns!"
+                  : `Those phrases were actually ${step.patternQuiz[patternQuizQuestion].answer}. Listen again!`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Feedback (standard quiz) */}
-        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && (
+        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && !step.patternQuiz && (
           <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
             <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
             <div>
@@ -2048,10 +2417,21 @@ export default function Lesson() {
           </div>
         )}
 
+        {/* Fun fact (one per lesson, shown on first watch/listen step) */}
+        {showFunFact && (
+          <div className="mt-4 rounded-2xl p-4 flex items-start gap-3" style={{ background: "#FFF8E1", border: "2px solid #FFB800" }}>
+            <span className="text-2xl">💡</span>
+            <p className="text-sm text-gray-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <strong>Fun fact:</strong> {funFact}
+            </p>
+          </div>
+        )}
+
         {/* Reflection prompt (play + explore steps) */}
         {hasReflection && (
           (step.type === "play" && ((step.rhythmPatterns && rhythmAllRoundsComplete) || (!step.rhythmPatterns && showFeedback && feedbackCorrect))) ||
-          (step.type === "explore" && exploreTaps >= (step.minTaps ?? 3))
+          (step.type === "explore" && step.formBuilder && formSequence.length >= 2) ||
+          (step.type === "explore" && !step.formBuilder && exploreTaps >= (step.minTaps ?? 3))
         ) && (
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }} className="mt-4 rounded-2xl p-4" style={{ background: "#FFF8E1", border: "2px solid #FFB800" }}>
             <p className="font-display font-700 text-base mb-3" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.95rem", color: "#1A1A2E" }}>
@@ -2073,7 +2453,7 @@ export default function Lesson() {
           <button onClick={canProceed ? handleNext : undefined} disabled={!canProceed}
             className="btn-notely w-full py-4 text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: canProceed ? "#FFB800" : "#E5DDD0", color: canProceed ? "#1A1A2E" : "#999", fontFamily: "'Baloo 2', cursive" }}>
-            {isLastStep ? "Finish Lesson! 🎉" : step.dynamicScenes && dynamicSceneRound < step.dynamicScenes.length - 1 ? "Next Scene →" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1 ? "Next Question →" : step.tempoQuiz && showFeedback && tempoQuizQuestion < step.tempoQuiz.length - 1 ? "Next Question →" : "Next →"}
+            {isLastStep ? "Finish Lesson! 🎉" : step.dynamicScenes && dynamicSceneRound < step.dynamicScenes.length - 1 ? "Next Scene →" : step.patternQuiz && showFeedback && patternQuizQuestion < step.patternQuiz.length - 1 ? "Next Question →" : step.rhythmQuizOptions && rhythmQuizQuestion === 0 && showFeedback ? "Next Question →" : step.dynamicsQuiz && showFeedback && dynamicsQuizQuestion < step.dynamicsQuiz.length - 1 ? "Next Question →" : step.tempoQuiz && showFeedback && tempoQuizQuestion < step.tempoQuiz.length - 1 ? "Next Question →" : "Next →"}
           </button>
         </div>
       </div>

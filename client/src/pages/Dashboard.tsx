@@ -25,6 +25,7 @@ const LESSONS_DEF = [
   { id: "6", title: "Your First Song", emoji: "⭐", color: "#FFB800", duration: "12 min", defaultStars: 0, tags: ["upbeat"] },
   { id: "7", title: "Loud and Soft", emoji: "🔊", color: "#9C27B0", duration: "5 min", defaultStars: 0, tags: ["slow", "theory"] },
   { id: "8", title: "Fast and Slow", emoji: "🐇", color: "#FF5C35", duration: "5 min", defaultStars: 0, tags: ["fast", "upbeat"] },
+  { id: "9", title: "Patterns in Music", emoji: "🧩", color: "#9C27B0", duration: "7 min", defaultStars: 0, tags: ["slow", "theory"] },
 ];
 
 function getLessons() {
