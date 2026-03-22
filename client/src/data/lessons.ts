@@ -272,73 +272,77 @@ const lesson2: LessonData = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LESSON 3: Long and Short Sounds (7 steps, ~6 min)
-// Orff: Duration concepts through body/unpitched percussion before pitch
-// Kolb: Hear contrast → Explore freely → Name duration → Create patterns
+// Orff/Kodaly: Duration taught through rhythm spacing — "ta" (one per beat = long)
+// vs "ti-ti" (two per beat = short), plus piano notes for audible sustain contrast
+// Kolb: Hear piano contrast → Explore on piano → Learn drum patterns → Create
 // ═══════════════════════════════════════════════════════════════════════════════
 const lesson3: LessonData = {
   name: "Lesson 3: Long and Short Sounds",
   steps: [
-    // 0 — Warm up with drums
+    // 0 — Warm up: tap along with beat
     {
       type: "explore",
-      title: "Warm Up! 🥁",
-      instruction: "Welcome back! Play the drums to warm up — try Boom and Tick!",
-      drumPads: DRUM_PADS,
+      title: "Warm Up! 👏",
+      instruction: "Welcome back! Tap along with the beat to warm up!",
+      tapAnywhere: true,
+      pulsingCircle: true,
       backgroundBeat: { bpm: 100 },
       minTaps: 4,
     },
-    // 1 — Concrete Experience: hear long vs short
+    // 1 — Concrete Experience: hear long vs short on piano (audible sustain difference)
     {
       type: "listen",
       title: "Hear the Difference! 👂",
-      instruction: "Tap each drum and listen carefully. Which sound rings longer?",
-      content: "Boom is a LONG sound — it rings out and fills the room. Tick is a SHORT sound — it's quick and snappy! Music is made of long and short sounds mixed together.",
-      drumPads: DRUM_PADS,
+      instruction: "Tap to hear two kinds of sounds. The first one rings out — the second ones are quick!",
+      content: "Listen! A LOW note rings out for a long time — it fills the air. But quick HIGH notes come and go fast! Music mixes these LONG sounds and SHORT sounds together to make rhythm.",
+      previewNotes: ["C4", "E4", "G4", "E4"],
     },
-    // 2 — Exploration: free drumming with awareness
+    // 2 — Exploration: try low keys (ring longer) vs high keys (feel quicker)
     {
       type: "explore",
-      title: "Long and Short! 🥁",
-      instruction: "Play Boom for long sounds and Tick for short sounds. Can you feel the difference?",
-      drumPads: DRUM_PADS,
+      title: "Long and Short! 🎹",
+      instruction: "Try the low keys on the left — hear how they ring out? Now tap the high keys on the right quickly! Low and slow, high and quick!",
+      notes: PENTATONIC_DIMMED_KEYS,
       minTaps: 6,
     },
-    // 3 — Imitation: copy varied long/short patterns
-    {
-      type: "play",
-      title: "Copy the Pattern! 🎯",
-      instruction: "These patterns mix long and short sounds. Listen, then copy!",
-      drumPads: DRUM_PADS,
-      rhythmPatterns: [
-        { sequence: ["kick", "kick", "hihat", "hihat"], bpm: 110 },
-        { sequence: ["kick", "hihat", "hihat", "kick"], bpm: 110 },
-        { sequence: ["hihat", "hihat", "hihat", "kick", "hihat"], bpm: 120 },
-      ],
-    },
-    // 4 — Abstract Conceptualization: visual block reading
-    {
-      type: "quiz",
-      title: "Read the Rhythm! 📖",
-      instruction: "Wide blocks are LONG sounds, narrow blocks are SHORT sounds. Which pattern matches?",
-      rhythmQuizOptions: [
-        { pattern: ["long", "short", "short", "long"], correct: true, label: "Boom Tick Tick Boom" },
-        { pattern: ["short", "long", "long", "short"], correct: false, label: "Tick Boom Boom Tick" },
-        { pattern: ["long", "short", "long", "short"], correct: true, label: "Boom Tick Boom Tick" },
-        { pattern: ["short", "short", "long", "long"], correct: false, label: "Tick Tick Boom Boom" },
-      ],
-    },
-    // 5 — Reflective Observation: name what was discovered
+    // 3 — Watch: name the concept (AFTER hearing it)
     {
       type: "watch",
       title: "Rhythm Has a Shape! 🧩",
-      instruction: "Let's name what you discovered!",
-      content: "Rhythms are made of LONG and SHORT sounds! When you mix them together in different orders, you get patterns. Every song in the world is built from these patterns — just long and short sounds arranged in creative ways!",
+      instruction: "Let's name what you just heard!",
+      content: "Music is made of LONG and SHORT sounds! A long sound takes up more space — like saying 'waaalk.' A short sound is quick — like saying 'run-ning!' When you mix them together, you get RHYTHM — the pattern of long and short that makes music feel alive!",
     },
-    // 6 — Creation: make your own rhythm
+    // 4 — Imitation: copy drum patterns that demonstrate spacing contrast
+    //     Pattern 1: slow steady hits (long), Pattern 2: quick double hits (short),
+    //     Pattern 3: mix of both
+    {
+      type: "play",
+      title: "Copy the Pattern! 🎯",
+      instruction: "Listen to each pattern. Some have long gaps between hits, some have quick double taps!",
+      drumPads: DRUM_PADS,
+      rhythmPatterns: [
+        { sequence: ["kick", "kick", "kick", "kick"], bpm: 90 },
+        { sequence: ["hihat", "hihat", "hihat", "hihat", "hihat", "hihat"], bpm: 160 },
+        { sequence: ["kick", "hihat", "hihat", "kick", "hihat", "hihat"], bpm: 130 },
+      ],
+    },
+    // 5 — Quiz: visual block notation
+    {
+      type: "quiz",
+      title: "Read the Rhythm! 📖",
+      instruction: "Wide blocks take up more time (LONG). Narrow blocks are quick (SHORT). Which pattern matches?",
+      rhythmQuizOptions: [
+        { pattern: ["long", "short", "short", "long"], correct: true, label: "Walk  run-ning  walk" },
+        { pattern: ["short", "long", "long", "short"], correct: false, label: "Run  walk  walk  run" },
+        { pattern: ["long", "long", "short", "short"], correct: true, label: "Walk  walk  run-ning" },
+        { pattern: ["short", "short", "long", "long"], correct: false, label: "Run-ning  walk  walk" },
+      ],
+    },
+    // 6 — Creation: mix long and short freely
     {
       type: "explore",
       title: "Create a Rhythm! ⭐",
-      instruction: "Make up your own rhythm pattern! Mix long Booms and short Ticks however you like!",
+      instruction: "Make your own pattern! Try slow steady taps, then quick double taps. Mix long and short however you like!",
       drumPads: DRUM_PADS,
       backgroundBeat: { bpm: 110 },
       minTaps: 8,
@@ -347,8 +351,8 @@ const lesson3: LessonData = {
   reflections: {
     6: {
       prompt: "What kind of rhythms do you like?",
-      optionA: { label: "Long steady booms! 🥁", value: "long" },
-      optionB: { label: "Quick snappy ticks! 🔔", value: "short" },
+      optionA: { label: "Long and steady! 🚶", value: "long" },
+      optionB: { label: "Quick and bouncy! 🏃", value: "short" },
     },
   },
 };
