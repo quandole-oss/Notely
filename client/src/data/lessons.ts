@@ -33,6 +33,7 @@ export interface LessonStep {
   velocitySensitive?: boolean;
   dynamicScenes?: { emoji: string; label: string; level: "soft" | "loud"; emojiMedium?: string; emojiBad?: string }[];
   dynamicsQuiz?: { note: string; velocity: number; answer: "loud" | "soft" }[];
+  durationQuiz?: { note: string; duration: number; answer: "long" | "short" }[];
   previewVelocities?: number[];
   // Tempo lesson fields
   tempoSlider?: boolean;
@@ -272,15 +273,16 @@ const lesson2: LessonData = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// LESSON 3: Long and Short Sounds (7 steps, ~6 min)
+// LESSON 3: Long and Short Sounds (6 steps, ~6 min)
 // Core mechanic: SUSTAIN MODE — hold a piano key to hear it ring (long),
 // quick-tap for a short sound. Children feel the difference in their own hands.
-// Kolb: Hold vs tap on piano → Name long/short → Drum patterns → Create freely
+// Entire lesson stays on piano with sustain — no context-switching to drums.
+// Kolb: Hold vs tap → Guided hold/tap → Name it → Quiz (long or short?) → Create
 // ═══════════════════════════════════════════════════════════════════════════════
 const lesson3: LessonData = {
   name: "Lesson 3: Long and Short Sounds",
   steps: [
-    // 0 — Concrete Experience: hold keys vs quick tap (sustainMode!)
+    // 0 — Concrete Experience: discover hold vs tap (sustainMode)
     {
       type: "explore",
       title: "Hold and Tap! 🎹",
@@ -289,11 +291,11 @@ const lesson3: LessonData = {
       sustainMode: true,
       minTaps: 6,
     },
-    // 1 — Guided Exploration: try making long and short sounds deliberately
+    // 1 — Guided Exploration: deliberately make long and short sounds
     {
       type: "explore",
       title: "Long... and Short! 🎵",
-      instruction: "Hold C down for a LONG sound... now quick-tap E for a SHORT sound! Try it with every key!",
+      instruction: "Hold C down for a LOOONG sound... now quick-tap E for a short sound! Try it with every key!",
       notes: PENTATONIC_KEYS,
       sustainMode: true,
       minTaps: 6,
@@ -305,45 +307,33 @@ const lesson3: LessonData = {
       instruction: "Let's name what you just did!",
       content: "When you HELD a key down, the sound rang out for a long time — that's a LONG sound! When you gave it a quick tap, the sound was short and snappy — that's a SHORT sound! All music is made of long and short sounds mixed together. It's like speaking: 'waaalk' is long, 'run' is short!",
     },
-    // 3 — Apply to drums: copy patterns with long gaps vs quick double hits
-    {
-      type: "play",
-      title: "Copy the Pattern! 🎯",
-      instruction: "Now try it on drums! Listen to each pattern — some sounds have space between them (long), some are close together (short)!",
-      drumPads: DRUM_PADS,
-      rhythmPatterns: [
-        { sequence: ["kick", "kick", "kick", "kick"], bpm: 90 },
-        { sequence: ["hihat", "hihat", "hihat", "hihat", "hihat", "hihat"], bpm: 160 },
-        { sequence: ["kick", "hihat", "hihat", "kick", "hihat", "hihat"], bpm: 130 },
-      ],
-    },
-    // 4 — Quiz: visual block reading
+    // 3 — Quiz: hear a note played long or short, identify which
     {
       type: "quiz",
-      title: "Read the Rhythm! 📖",
-      instruction: "Wide blocks take up more time (LONG). Narrow blocks are quick (SHORT). Which pattern matches?",
-      rhythmQuizOptions: [
-        { pattern: ["long", "short", "short", "long"], correct: true, label: "Loooong  quick quick  loooong" },
-        { pattern: ["short", "long", "long", "short"], correct: false, label: "Quick  loooong  loooong  quick" },
-        { pattern: ["long", "long", "short", "short"], correct: true, label: "Loooong  loooong  quick quick" },
-        { pattern: ["short", "short", "long", "long"], correct: false, label: "Quick quick  loooong  loooong" },
+      title: "Long or Short? 👂",
+      instruction: "Listen to each sound. Was it LONG (ringing out) or SHORT (quick tap)?",
+      durationQuiz: [
+        { note: "C4", duration: 2.5, answer: "long" },
+        { note: "E4", duration: 0.2, answer: "short" },
+        { note: "G4", duration: 0.15, answer: "short" },
+        { note: "A4", duration: 2.0, answer: "long" },
       ],
     },
-    // 5 — Creation: mix long holds and short taps on piano
+    // 4 — Creation: mix long holds and short taps to make music
     {
       type: "explore",
       title: "Your Long-Short Song! ⭐",
-      instruction: "Make your own pattern! Hold some notes looong, tap others quick. Tell a story with long and short sounds!",
+      instruction: "Make your own music! Hold some notes looong, tap others quick. Tell a story with long and short sounds!",
       notes: PENTATONIC_KEYS,
       sustainMode: true,
       minTaps: 8,
     },
   ],
   reflections: {
-    5: {
+    4: {
       prompt: "What kind of sounds do you like?",
       optionA: { label: "Long ringing sounds! 🎶", value: "long" },
-      optionB: { label: "Quick snappy taps! 🏃", value: "short" },
+      optionB: { label: "Quick snappy taps! ⚡", value: "short" },
     },
   },
 };

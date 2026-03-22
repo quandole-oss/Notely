@@ -115,6 +115,10 @@ export default function Lesson() {
   const [dynamicsQuizQuestion, setDynamicsQuizQuestion] = useState(0);
   const [dynamicsQuizHasPlayed, setDynamicsQuizHasPlayed] = useState(false);
 
+  // ─── Duration quiz state ──────────────────────────────────────────────
+  const [durationQuizQuestion, setDurationQuizQuestion] = useState(0);
+  const [durationQuizHasPlayed, setDurationQuizHasPlayed] = useState(false);
+
   // ─── Pattern / Form state ──────────────────────────────────────────────
   const [patternBlockIdx, setPatternBlockIdx] = useState<number | null>(null);
   const [patternQuizQuestion, setPatternQuizQuestion] = useState(0);
@@ -294,6 +298,27 @@ export default function Lesson() {
     const q = step.dynamicsQuiz[dynamicsQuizQuestion];
     const correct = answer === q.answer;
     setSelectedOption(answer === "soft" ? 0 : 1);
+    setFeedbackCorrect(correct);
+    setShowFeedback(true);
+    if (correct) playSuccessChime();
+    else playErrorSound();
+  };
+
+  // ─── Duration quiz: play the clip ──────────────────────────────────────
+  const handleDurationQuizListen = () => {
+    if (!step.durationQuiz) return;
+    setDurationQuizHasPlayed(true);
+    const q = step.durationQuiz[durationQuizQuestion];
+    if (!q) return;
+    playNote(q.note, q.duration);
+  };
+
+  // ─── Duration quiz: select answer ──────────────────────────────────────
+  const handleDurationQuizSelect = (answer: "long" | "short") => {
+    if (showFeedback || !step.durationQuiz) return;
+    const q = step.durationQuiz[durationQuizQuestion];
+    const correct = answer === q.answer;
+    setSelectedOption(answer === "short" ? 0 : 1);
     setFeedbackCorrect(correct);
     setShowFeedback(true);
     if (correct) playSuccessChime();
@@ -841,6 +866,15 @@ export default function Lesson() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, patternQuizQuestion]);
 
+  // ─── Auto-play duration quiz on entering quiz step / advancing question ────
+  useEffect(() => {
+    if (step.durationQuiz) {
+      const t = setTimeout(() => handleDurationQuizListen(), 500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, durationQuizQuestion]);
+
   // ─── Auto-stop recording after 8 seconds ──────────────────────────────────
   useEffect(() => {
     if (isRecording) {
@@ -924,6 +958,16 @@ export default function Lesson() {
       setSelectedOption(null);
       setFeedbackCorrect(false);
       setDynamicsQuizHasPlayed(false);
+      return;
+    }
+
+    // Multi-question duration quiz: advance to next question
+    if (step.durationQuiz && showFeedback && durationQuizQuestion < step.durationQuiz.length - 1) {
+      setDurationQuizQuestion((q) => q + 1);
+      setShowFeedback(false);
+      setSelectedOption(null);
+      setFeedbackCorrect(false);
+      setDurationQuizHasPlayed(false);
       return;
     }
 
@@ -1044,8 +1088,9 @@ export default function Lesson() {
     (step.type === "quiz" && step.patternQuiz && showFeedback) ||
     (step.type === "quiz" && step.tempoQuiz && showFeedback) ||
     (step.type === "quiz" && step.dynamicsQuiz && showFeedback) ||
+    (step.type === "quiz" && step.durationQuiz && showFeedback) ||
     (step.type === "quiz" && step.rhythmQuizOptions && showFeedback) ||
-    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && !step.patternQuiz && selectedOption !== null);
+    (step.type === "quiz" && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.durationQuiz && !step.tempoQuiz && !step.patternQuiz && selectedOption !== null);
 
   // ─── Drum pad rendering helper ────────────────────────────────────────────
   const renderDrumPads = (onTap: (pad: NonNullable<LessonStep["drumPads"]>[number]) => void) => {
@@ -1691,6 +1736,70 @@ export default function Lesson() {
                         <span className="text-4xl">{ans === "soft" ? "🤫" : "📢"}</span>
                         <span className="font-display font-700 text-base" style={{ fontFamily: "'Baloo 2', cursive" }}>
                           {ans === "soft" ? "Soft" : "Loud"}
+                        </span>
+                        {(isSelected || isCorrect) && <span className="text-lg">{isCorrect ? "✓" : "✗"}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ─── Quiz: duration quiz (long or short?) ────────────────────── */}
+        {step.type === "quiz" && step.durationQuiz && (() => {
+          const q = step.durationQuiz[durationQuizQuestion];
+          return (
+            <div className="animate-slide-up">
+              <p className="text-center text-sm font-display font-700 mb-4" style={{ color: "#999", fontFamily: "'Baloo 2', cursive" }}>
+                Question {durationQuizQuestion + 1} of {step.durationQuiz.length}
+              </p>
+
+              {/* Listen button */}
+              <div className="flex justify-center mb-5">
+                <button onClick={handleDurationQuizListen}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-700 text-sm transition-all duration-200 select-none"
+                  style={{ background: "#4AABF5", color: "white", fontFamily: "'Baloo 2', cursive", boxShadow: "0 4px 0 rgba(74,171,245,0.4)" }}>
+                  <span className="text-lg">👂</span>
+                  {durationQuizHasPlayed ? "Listen Again" : "Listen"}
+                </button>
+              </div>
+
+              {/* Answer cards */}
+              {durationQuizHasPlayed && !showFeedback && (
+                <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-center gap-4">
+                  <button onClick={() => handleDurationQuizSelect("short")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "8rem", background: "white", border: "3px solid #FF5C35" }}>
+                    <span className="text-4xl">⚡</span>
+                    <span className="font-display font-700 text-base" style={{ color: "#FF5C35", fontFamily: "'Baloo 2', cursive" }}>Short</span>
+                  </button>
+                  <button onClick={() => handleDurationQuizSelect("long")}
+                    className="card-notely p-5 flex flex-col items-center gap-2 select-none transition-all duration-150"
+                    style={{ width: "8rem", background: "white", border: "3px solid #9C27B0" }}>
+                    <span className="text-4xl">🎶</span>
+                    <span className="font-display font-700 text-base" style={{ color: "#9C27B0", fontFamily: "'Baloo 2', cursive" }}>Long</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Feedback */}
+              {showFeedback && (
+                <div className="flex justify-center gap-4 mb-3">
+                  {["short", "long"].map((ans, i) => {
+                    const isSelected = selectedOption === i;
+                    const isCorrect = q.answer === ans;
+                    let bg = "#E5DDD0"; let border = "#E5DDD0";
+                    if (isSelected && feedbackCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    else if (isSelected && !feedbackCorrect) { bg = "#FF5C35"; border = "#FF5C35"; }
+                    else if (isCorrect) { bg = "#3ECFA4"; border = "#3ECFA4"; }
+                    return (
+                      <div key={ans} className="card-notely p-5 flex flex-col items-center gap-2"
+                        style={{ width: "8rem", background: bg, border: `3px solid ${border}`, color: isSelected || isCorrect ? "white" : "#999" }}>
+                        <span className="text-4xl">{ans === "short" ? "⚡" : "🎶"}</span>
+                        <span className="font-display font-700 text-base" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                          {ans === "short" ? "Short" : "Long"}
                         </span>
                         {(isSelected || isCorrect) && <span className="text-lg">{isCorrect ? "✓" : "✗"}</span>}
                       </div>
@@ -2830,6 +2939,23 @@ export default function Lesson() {
           </div>
         )}
 
+        {/* Feedback (duration quiz) */}
+        {showFeedback && step.durationQuiz && (
+          <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
+            <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
+            <div>
+              <p className="font-display font-700" style={{ color: feedbackCorrect ? "#2E7D32" : "#E65100", fontFamily: "'Baloo 2', cursive" }}>
+                {feedbackCorrect ? "You heard it right!" : "Not quite!"}
+              </p>
+              <p className="text-sm text-gray-600" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {feedbackCorrect
+                  ? "Your ears are getting great at hearing long and short sounds!"
+                  : `That one was actually ${step.durationQuiz[durationQuizQuestion].answer}. Listen again next time!`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Feedback (tempo quiz) */}
         {showFeedback && step.tempoQuiz && (
           <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
@@ -2865,7 +2991,7 @@ export default function Lesson() {
         )}
 
         {/* Feedback (standard quiz) */}
-        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.tempoQuiz && !step.patternQuiz && (
+        {showFeedback && !step.rhythmQuizOptions && !step.dynamicsQuiz && !step.durationQuiz && !step.tempoQuiz && !step.patternQuiz && (
           <div className="mt-5 rounded-2xl p-4 flex items-center gap-3 animate-pop" style={{ background: feedbackCorrect ? "#E8F5E9" : "#FFF3E0", border: `2px solid ${feedbackCorrect ? "#3ECFA4" : "#FF5C35"}` }}>
             <span className="text-3xl">{feedbackCorrect ? "🎉" : "🔍"}</span>
             <div>
