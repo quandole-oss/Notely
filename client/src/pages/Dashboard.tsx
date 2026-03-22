@@ -17,15 +17,15 @@ const INSTRUMENT_EMOJIS: Record<string, string> = {
 };
 
 const LESSONS_DEF = [
-  { id: "1", title: "Meet the Instruments", emoji: "🎶", color: "#9C27B0", duration: "4 min", defaultStars: 0, tags: ["slow", "theory"] },
-  { id: "2", title: "Meet the Piano", emoji: "🎹", color: "#FFB800", duration: "5 min", defaultStars: 0, tags: ["slow", "theory"] },
-  { id: "3", title: "High and Low", emoji: "📏", color: "#4AABF5", duration: "6 min", defaultStars: 0, tags: ["slow", "theory"] },
-  { id: "4", title: "Your First Notes", emoji: "🎵", color: "#FF5C35", duration: "8 min", defaultStars: 0, tags: ["slow", "theory"] },
-  { id: "5", title: "Rhythm & Beat", emoji: "🥁", color: "#3ECFA4", duration: "8 min", defaultStars: 0, tags: ["fast", "upbeat"] },
-  { id: "6", title: "Your First Song", emoji: "⭐", color: "#FFB800", duration: "12 min", defaultStars: 0, tags: ["upbeat"] },
-  { id: "7", title: "Loud and Soft", emoji: "🔊", color: "#9C27B0", duration: "5 min", defaultStars: 0, tags: ["slow", "theory"] },
-  { id: "8", title: "Fast and Slow", emoji: "🐇", color: "#FF5C35", duration: "5 min", defaultStars: 0, tags: ["fast", "upbeat"] },
-  { id: "9", title: "Patterns in Music", emoji: "🧩", color: "#9C27B0", duration: "7 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "1", title: "Let's Make Sounds!", emoji: "👏", color: "#3ECFA4", duration: "5 min", defaultStars: 0, tags: ["fast", "upbeat"] },
+  { id: "2", title: "Feel the Beat", emoji: "💓", color: "#4AABF5", duration: "5 min", defaultStars: 0, tags: ["fast", "upbeat"] },
+  { id: "3", title: "Long and Short Sounds", emoji: "🥁", color: "#FF5C35", duration: "6 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "4", title: "Meet the Piano", emoji: "🎹", color: "#FFB800", duration: "5 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "5", title: "High and Low", emoji: "📏", color: "#4AABF5", duration: "6 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "6", title: "My First Notes", emoji: "🎵", color: "#FF5C35", duration: "8 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "7", title: "My First Song", emoji: "⭐", color: "#FFB800", duration: "10 min", defaultStars: 0, tags: ["upbeat"] },
+  { id: "8", title: "Loud and Soft", emoji: "🔊", color: "#9C27B0", duration: "6 min", defaultStars: 0, tags: ["slow", "theory"] },
+  { id: "9", title: "Fast and Slow", emoji: "🐇", color: "#FF5C35", duration: "6 min", defaultStars: 0, tags: ["fast", "upbeat"] },
   { id: "10", title: "My Music", emoji: "🎉", color: "#FFB800", duration: "8 min", defaultStars: 0, tags: ["upbeat"] },
 ];
 

@@ -19,15 +19,15 @@ const KEY_TO_NOTE: Record<string, string> = {
 
 // One fun fact per lesson, shown once on the first watch/listen step
 const LESSON_FUN_FACTS: Record<string, string> = {
-  "1": "The world's largest instrument is the pipe organ — some have over 10,000 pipes and fill an entire building!",
-  "2": "The piano has 88 keys! But you only need to learn 7 note names to understand all of them.",
-  "3": "The lowest note on a piano vibrates only 27 times per second, but the highest vibrates over 4,000!",
-  "4": "Note names go A through G, then start over — but most songs begin on C because it's the easiest key to find!",
-  "5": "Your heart beats about 100,000 times a day — it's the first rhythm you ever heard!",
-  "6": "'Hot Cross Buns' has been sung for over 200 years — and it only uses 3 notes!",
-  "7": "In music, soft is called 'piano' and loud is called 'forte' — that's how the piano got its full name: pianoforte!",
-  "8": "The fastest song ever recorded has over 1,000 beats per minute — way too fast to dance to!",
-  "9": "Most pop songs follow the same pattern: verse, chorus, verse, chorus, bridge, chorus!",
+  "1": "Your heart beats about 100,000 times a day — it's the first rhythm you ever heard!",
+  "2": "The world's largest drum circle had over 7,000 drummers all playing the same beat!",
+  "3": "Drummers in Africa can send messages over miles just by playing long and short sounds on talking drums!",
+  "4": "The piano has 88 keys, but just 5 special notes can play thousands of melodies!",
+  "5": "The lowest note on a piano vibrates only 27 times per second, but the highest vibrates over 4,000!",
+  "6": "Note names go A through G, then start over — but most songs begin on C because it's the easiest key to find!",
+  "7": "'Hot Cross Buns' has been sung for over 200 years — and it only uses 3 notes!",
+  "8": "In music, soft is called 'piano' and loud is called 'forte' — that's how the piano got its full name: pianoforte!",
+  "9": "The fastest song ever recorded has over 1,000 beats per minute — way too fast to dance to!",
   "10": "Mozart wrote his first composition when he was just 5 years old — and you're composing right now!",
 };
 
