@@ -26,9 +26,9 @@ const SKILL_NODES: SkillNode[] = [
   { id: "n1",  lessonId: "1",  title: "Let's Make Sounds!",     emoji: "👏", color: "#3ECFA4", description: "Make music with your body!", x: 14, y: 84 },
   { id: "n2",  lessonId: "2",  title: "Feel the Beat",          emoji: "💓", color: "#4AABF5", description: "Find the heartbeat of music", x: 29, y: 92 },
   { id: "n3",  lessonId: "3",  title: "Long and Short Sounds",  emoji: "🥁", color: "#FF5C35", description: "Explore rhythm patterns", x: 29, y: 76 },
-  { id: "n4",  lessonId: "4",  title: "Meet the Piano",         emoji: "🎹", color: "#FFB800", description: "Discover the piano keys!", x: 44, y: 84 },
+  { id: "n4",  lessonId: "4",  title: "High and Low",            emoji: "📏", color: "#4AABF5", description: "Sounds go up and down!", x: 44, y: 84 },
   // Stem (straight vertical at x=44) — 2 nodes
-  { id: "n5",  lessonId: "5",  title: "High and Low",           emoji: "📏", color: "#4AABF5", description: "Sounds go up and down!", x: 44, y: 58 },
+  { id: "n5",  lessonId: "5",  title: "Meet the Piano",         emoji: "🎹", color: "#FFB800", description: "Discover the piano keys!", x: 44, y: 58 },
   { id: "n6",  lessonId: "6",  title: "My First Notes",         emoji: "🎵", color: "#FF5C35", description: "Learn C, D, and E!", x: 44, y: 38 },
   // Flag (arc from stem top, curving right and swooping down) — 4 nodes
   { id: "n7",  lessonId: "7",  title: "My First Song",          emoji: "⭐", color: "#FFB800", description: "Play your first real song!", x: 44, y: 22 },

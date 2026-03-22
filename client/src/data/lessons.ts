@@ -344,7 +344,7 @@ const lesson3: LessonData = {
 // Kolb: Free explore → Hear staircase → Name keys → Create a tune
 // ═══════════════════════════════════════════════════════════════════════════════
 const lesson4: LessonData = {
-  name: "Lesson 4: Meet the Piano",
+  name: "Lesson 5: Meet the Piano",
   steps: [
     // 0 — Concrete Experience: free exploration with pentatonic (no wrong sounds!)
     {
@@ -413,7 +413,7 @@ const lesson4: LessonData = {
 // Kolb: Explore extremes → Hear staircase → Name high/low → Create contrasts
 // ═══════════════════════════════════════════════════════════════════════════════
 const lesson5: LessonData = {
-  name: "Lesson 5: High and Low",
+  name: "Lesson 4: High and Low",
   steps: [
     // 0 — Warm up: reconnect with pentatonic piano
     {
@@ -904,8 +904,8 @@ export const LESSONS: Record<string, LessonData> = {
   "1": lesson1,
   "2": lesson2,
   "3": lesson3,
-  "4": lesson4,
-  "5": lesson5,
+  "4": lesson5,
+  "5": lesson4,
   "6": lesson6,
   "7": lesson7,
   "8": lesson8,
