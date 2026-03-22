@@ -178,6 +178,8 @@ const lesson1: LessonData = {
       rhythmQuizOptions: [
         { pattern: ["long", "long", "short", "short"], correct: true, label: "Boom Boom Tick Tick" },
         { pattern: ["short", "short", "long", "long"], correct: false, label: "Tick Tick Boom Boom" },
+        { pattern: ["long", "short", "long", "short"], correct: true, label: "Boom Tick Boom Tick" },
+        { pattern: ["short", "long", "short", "long"], correct: false, label: "Tick Boom Tick Boom" },
       ],
     },
   ],
