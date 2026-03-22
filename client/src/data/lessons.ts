@@ -2,6 +2,10 @@
  * NOTELY — LESSON DATA
  * All lesson step definitions, keyed by lesson ID
  * Extracted from Lesson.tsx to support multi-lesson routing
+ *
+ * Pedagogical framework: Orff Schulwerk + Constructivist + Experiential (Kolb)
+ * Sequence: body percussion → unpitched percussion → pitched instruments → pentatonic → composition
+ * Each lesson: Explore/Experience → Reflect/Observe → Name/Conceptualize → Create/Experiment
  */
 
 export interface LessonStep {
@@ -60,25 +64,35 @@ export interface LessonData {
   reflections: Record<number, ReflectionPrompt>;
 }
 
-const ALL_KEYS = [
+// ─── KEY SETS ────────────────────────────────────────────────────────────────
+
+// Pentatonic scale (C-D-E-G-A) — Orff Schulwerk: every combination sounds consonant
+const PENTATONIC_KEYS = [
   { note: "C", label: "C", color: "#FFB800" },
   { note: "D", label: "D", color: "#FF5C35" },
   { note: "E", label: "E", color: "#4AABF5" },
-  { note: "F", label: "F", color: "#3ECFA4" },
   { note: "G", label: "G", color: "#9C27B0" },
   { note: "A", label: "A", color: "#FF5C35" },
-  { note: "B", label: "B", color: "#4AABF5" },
 ];
 
-// L2 "Go Low, Go High" — middle notes dimmed to funnel kids to extremes
-const LOW_HIGH_KEYS = [
+// Full keyboard with F and B dimmed — visual cue to stay pentatonic
+const PENTATONIC_DIMMED_KEYS = [
   { note: "C", label: "C", color: "#FFB800" },
   { note: "D", label: "D", color: "#FF5C35" },
-  { note: "E", label: "E", color: "#4AABF5", dimmed: true },
+  { note: "E", label: "E", color: "#4AABF5" },
   { note: "F", label: "F", color: "#3ECFA4", dimmed: true },
+  { note: "G", label: "G", color: "#9C27B0" },
+  { note: "A", label: "A", color: "#FF5C35" },
+  { note: "B", label: "B", color: "#4AABF5", dimmed: true },
+];
+
+// High/Low pentatonic — extremes highlighted, middle dimmed
+const LOW_HIGH_PENTATONIC_KEYS = [
+  { note: "C", label: "C", color: "#FFB800" },
+  { note: "D", label: "D", color: "#FF5C35", dimmed: true },
+  { note: "E", label: "E", color: "#4AABF5", dimmed: true },
   { note: "G", label: "G", color: "#9C27B0", dimmed: true },
   { note: "A", label: "A", color: "#FF5C35" },
-  { note: "B", label: "B", color: "#4AABF5" },
 ];
 
 const CDE_KEYS = [
@@ -87,7 +101,13 @@ const CDE_KEYS = [
   { note: "E", label: "E", color: "#4AABF5" },
 ];
 
-// ─── INSTRUMENT CARDS for Meet the Instruments lesson ────────────────────────
+// ─── DRUM PADS (used from Lesson 1 onward — Orff: rhythm before pitch) ──────
+const DRUM_PADS = [
+  { id: "boom", label: "Boom", emoji: "🥁", color: "#3ECFA4", sound: "kick" as const },
+  { id: "tick", label: "Tick", emoji: "🔔", color: "#4AABF5", sound: "hihat" as const },
+];
+
+// ─── INSTRUMENT CARDS (used by capstone) ────────────────────────────────────
 const INSTRUMENT_CARDS = [
   { id: "piano", label: "Keyboard", emoji: "🎹", color: "#FFB800" },
   { id: "guitar", label: "Guitar", emoji: "🎸", color: "#FF5C35" },
@@ -96,108 +116,350 @@ const INSTRUMENT_CARDS = [
   { id: "trumpet", label: "Brass", emoji: "🎺", color: "#9C27B0" },
 ];
 
-// ─── LESSON 1: Meet the Instruments (3 steps, ~4 min) ───────────────────────
-// Concept: Music has many different instruments — each with its own voice
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 1: Let's Make Sounds! (6 steps, ~5 min)
+// Orff: Body percussion + speech rhythms — the FIRST musical experience
+// Kolb: Experience (tap) → Observe (watch) → Conceptualize (drums) → Experiment (create)
+// ═══════════════════════════════════════════════════════════════════════════════
 const lesson1: LessonData = {
-  name: "Lesson 1: Meet the Instruments",
+  name: "Lesson 1: Let's Make Sounds!",
   steps: [
+    // 0 — Concrete Experience: feel the beat with your body
+    {
+      type: "explore",
+      title: "Tap Along! 👏",
+      instruction: "Tap along with the heartbeat! Clap your hands, pat your legs, stomp your feet — any way you like!",
+      tapAnywhere: true,
+      pulsingCircle: true,
+      backgroundBeat: { bpm: 100 },
+      minTaps: 8,
+    },
+    // 1 — Reflective Observation: name what just happened (AFTER experience)
     {
       type: "watch",
-      title: "Music Has Many Voices! 🎶",
-      instruction: "There are lots of instruments in music! Each one makes its own special sound. Let's hear some!",
-      content: "Music is made by many different instruments. Some are played with keys, some with strings, some by blowing air, and some by hitting them! Each instrument family has its own special sound.",
+      title: "Your Body Is an Instrument! 👏",
+      instruction: "Did you feel that? YOU just made music!",
+      content: "Your hands can clap, your feet can stomp, your legs can pat. Your body is the first instrument you ever had! Every kind of music starts with people making sounds — just like you did. Rhythm is the heartbeat of all music!",
     },
+    // 2 — Transfer: body percussion → unpitched percussion (Orff sequence)
     {
       type: "explore",
-      title: "Tap to Hear! 🎧",
-      instruction: "Tap each instrument to hear what it sounds like. Try all five!",
-      instruments: INSTRUMENT_CARDS,
-      minTaps: 5,
+      title: "Boom and Tick! 🥁",
+      instruction: "Boom is like stomping your feet. Tick is like snapping your fingers. Try both!",
+      drumPads: DRUM_PADS,
+      minTaps: 6,
     },
+    // 3 — Imitation: copy drum patterns (Orff process step 1)
+    {
+      type: "play",
+      title: "Copy My Pattern! 🎯",
+      instruction: "Listen to each pattern, then copy it with the drums. Can you match all 3?",
+      drumPads: DRUM_PADS,
+      rhythmPatterns: [
+        { sequence: ["kick", "kick", "hihat", "hihat"], bpm: 110 },
+        { sequence: ["kick", "hihat", "kick", "hihat"], bpm: 110 },
+        { sequence: ["kick", "kick", "kick", "hihat"], bpm: 120 },
+      ],
+    },
+    // 4 — Improvisation: make your own (Orff process step 3)
     {
       type: "explore",
-      title: "Listen Again! ⭐",
-      instruction: "Now that you've heard them all — which is YOUR favorite? Tap it again!",
-      instruments: INSTRUMENT_CARDS,
-      minTaps: 3,
-      pickFavorite: true,
+      title: "Make Your Own Pattern! 🎶",
+      instruction: "Now make YOUR own rhythm! There's no wrong pattern — just play what feels good!",
+      drumPads: DRUM_PADS,
+      backgroundBeat: { bpm: 100 },
+      minTaps: 8,
+    },
+    // 5 — Abstract Conceptualization: visual rhythm reading
+    {
+      type: "quiz",
+      title: "Read the Rhythm! 📖",
+      instruction: "Look at the blocks! Wide = Boom (long), narrow = Tick (short). Which pattern matches?",
+      rhythmQuizOptions: [
+        { pattern: ["long", "long", "short", "short"], correct: true, label: "Boom Boom Tick Tick" },
+        { pattern: ["short", "short", "long", "long"], correct: false, label: "Tick Tick Boom Boom" },
+      ],
     },
   ],
-  reflections: {},
+  reflections: {
+    4: {
+      prompt: "How did making your own rhythm feel?",
+      optionA: { label: "I loved it! 🎶", value: "loved" },
+      optionB: { label: "I want to try more! 🥁", value: "more" },
+    },
+  },
 };
 
-// ─── LESSON 2: Meet the Piano (3 steps, ~3 min) ────────────────────────────
-// Concept: What is a piano? What happens when I press keys?
-// Theory: Humanism (self-directed, no judgment) + Experiential (concrete experience)
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 2: Feel the Beat (6 steps, ~5 min)
+// Orff: Deepen steady beat internalization before any pitch
+// Kolb: Feel beat → Hear contrast → Name steady beat → Experiment with tempo
+// ═══════════════════════════════════════════════════════════════════════════════
 const lesson2: LessonData = {
-  name: "Lesson 2: Meet the Piano",
+  name: "Lesson 2: Feel the Beat",
   steps: [
-    // 0 — Free explore (Humanism: self-directed discovery)
+    // 0 — Warm up: reconnect with body percussion from L1
     {
       type: "explore",
-      title: "Try It Yourself First! 🎹",
-      instruction: "No rules yet — just tap any keys and listen. What sounds interesting to you?",
-      notes: ALL_KEYS,
-      minTaps: 3,
+      title: "Warm Up! 👏",
+      instruction: "Welcome back! Tap along with the beat to warm up — you know how!",
+      tapAnywhere: true,
+      pulsingCircle: true,
+      backgroundBeat: { bpm: 100 },
+      minTaps: 6,
     },
-    // 1 — Watch: intro to the piano
+    // 1 — Concrete Experience: hear same melody at two speeds
+    {
+      type: "listen",
+      title: "Two Speeds! 🐢🐇",
+      instruction: "Tap to hear the same pattern played two ways — first slow, then fast!",
+      content: "Some beats walk slowly like a tortoise, some run fast like a rabbit — but both are STEADY, like a clock! A beat that keeps going evenly is called a steady beat.",
+      tempoListenDemo: {
+        slowBpm: 80,
+        fastBpm: 160,
+        sequence: ["C", "D", "E", "D", "C"],
+      },
+    },
+    // 2 — Active Experimentation: control the speed
+    {
+      type: "explore",
+      title: "Speed Control! 🎚️",
+      instruction: "Drag the slider to change the speed! Can you tap along at every speed?",
+      tempoSlider: true,
+      tempoRange: [60, 180],
+      tempoSliderMinMoves: 3,
+      minTaps: 0,
+    },
+    // 3 — Imitation: steady patterns at different tempos
+    {
+      type: "play",
+      title: "Keep the Beat! 🎯",
+      instruction: "Copy these steady patterns. Keep the beat going even and strong!",
+      drumPads: DRUM_PADS,
+      rhythmPatterns: [
+        { sequence: ["kick", "kick", "kick", "kick"], bpm: 100 },
+        { sequence: ["hihat", "hihat", "hihat", "hihat"], bpm: 120 },
+        { sequence: ["kick", "hihat", "kick", "hihat"], bpm: 110 },
+      ],
+    },
+    // 4 — Abstract Conceptualization: name the concept (AFTER feeling it)
     {
       type: "watch",
-      title: "Meet the Piano! 🎹",
-      instruction: "Let's learn about the piano keys",
-      content: "Piano has keys. Left side = low sounds, right side = high sounds. The 7 white keys are named C, D, E, F, G, A, B. Every key makes its own special sound!",
+      title: "The Heartbeat of Music! 💓",
+      instruction: "Let's name what you've been feeling!",
+      content: "Every song has a BEAT — a steady pulse that never stops! When you clap along to a song, you're feeling the beat. Fast or slow, the beat keeps going steady, like your heartbeat. The beat is what makes music feel alive!",
     },
-    // 2 — Free explore: make a tune
+    // 5 — Creative application: drum circle
     {
       type: "explore",
-      title: "Make Your Own Tune! ⭐",
-      instruction: "Now that you've met the piano, play any notes you like! Try going low to high, or make up a little melody.",
-      notes: ALL_KEYS,
-      minTaps: 5,
+      title: "Drum Circle! 🎶",
+      instruction: "Play along with the beat! Add your own Booms and Ticks on top. Feel the groove!",
+      drumPads: DRUM_PADS,
+      backgroundBeat: { bpm: 110 },
+      minTaps: 8,
     },
   ],
-  reflections: {},
+  reflections: {
+    5: {
+      prompt: "What speed did you like best?",
+      optionA: { label: "Slow and steady 🐢", value: "slow" },
+      optionB: { label: "Fast and exciting! 🐇", value: "fast" },
+    },
+  },
 };
 
-// ─── LESSON 2: High and Low (7 steps, ~6 min) ──────────────────────────────
-// Concept: Sounds have pitch — some are low (bear), some are high (bird)
-// Theory: Constructivism (name what they felt in L1) + Experiential (full Kolb cycle)
-// No note names taught — just the concept of pitch direction.
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 3: Long and Short Sounds (7 steps, ~6 min)
+// Orff: Duration concepts through body/unpitched percussion before pitch
+// Kolb: Hear contrast → Explore freely → Name duration → Create patterns
+// ═══════════════════════════════════════════════════════════════════════════════
 const lesson3: LessonData = {
-  name: "Lesson 3: High and Low",
+  name: "Lesson 3: Long and Short Sounds",
   steps: [
-    // 0 — Warm up: reconnect with the piano
+    // 0 — Warm up with drums
     {
       type: "explore",
-      title: "Warm Up! 🎹",
-      instruction: "Welcome back! Play any keys you remember from last time. There are no wrong notes — just warm up!",
-      notes: ALL_KEYS,
+      title: "Warm Up! 🥁",
+      instruction: "Welcome back! Play the drums to warm up — try Boom and Tick!",
+      drumPads: DRUM_PADS,
+      backgroundBeat: { bpm: 100 },
       minTaps: 4,
     },
-    // 1 — Watch: introduce pitch concept with bear/bird
+    // 1 — Concrete Experience: hear long vs short
+    {
+      type: "listen",
+      title: "Hear the Difference! 👂",
+      instruction: "Tap each drum and listen carefully. Which sound rings longer?",
+      content: "Boom is a LONG sound — it rings out and fills the room. Tick is a SHORT sound — it's quick and snappy! Music is made of long and short sounds mixed together.",
+      drumPads: DRUM_PADS,
+    },
+    // 2 — Exploration: free drumming with awareness
+    {
+      type: "explore",
+      title: "Long and Short! 🥁",
+      instruction: "Play Boom for long sounds and Tick for short sounds. Can you feel the difference?",
+      drumPads: DRUM_PADS,
+      minTaps: 6,
+    },
+    // 3 — Imitation: copy varied long/short patterns
+    {
+      type: "play",
+      title: "Copy the Pattern! 🎯",
+      instruction: "These patterns mix long and short sounds. Listen, then copy!",
+      drumPads: DRUM_PADS,
+      rhythmPatterns: [
+        { sequence: ["kick", "kick", "hihat", "hihat"], bpm: 110 },
+        { sequence: ["kick", "hihat", "hihat", "kick"], bpm: 110 },
+        { sequence: ["hihat", "hihat", "hihat", "kick", "hihat"], bpm: 120 },
+      ],
+    },
+    // 4 — Abstract Conceptualization: visual block reading
+    {
+      type: "quiz",
+      title: "Read the Rhythm! 📖",
+      instruction: "Wide blocks are LONG sounds, narrow blocks are SHORT sounds. Which pattern matches?",
+      rhythmQuizOptions: [
+        { pattern: ["long", "short", "short", "long"], correct: true, label: "Boom Tick Tick Boom" },
+        { pattern: ["short", "long", "long", "short"], correct: false, label: "Tick Boom Boom Tick" },
+        { pattern: ["long", "short", "long", "short"], correct: true, label: "Boom Tick Boom Tick" },
+        { pattern: ["short", "short", "long", "long"], correct: false, label: "Tick Tick Boom Boom" },
+      ],
+    },
+    // 5 — Reflective Observation: name what was discovered
     {
       type: "watch",
-      title: "Sounds Go Up and Down! 📏",
-      instruction: "Let's learn about low sounds and high sounds",
-      content: "Notes on the LEFT side of the piano sound LOW — like a big bear growling 🐻. Notes on the RIGHT side sound HIGH — like a little bird singing 🐦! Left side is deep, right side is bright. Sounds go from low to high like climbing up stairs!",
+      title: "Rhythm Has a Shape! 🧩",
+      instruction: "Let's name what you discovered!",
+      content: "Rhythms are made of LONG and SHORT sounds! When you mix them together in different orders, you get patterns. Every song in the world is built from these patterns — just long and short sounds arranged in creative ways!",
     },
-    // 2 — Listen: hear the staircase low→high
+    // 6 — Creation: make your own rhythm
+    {
+      type: "explore",
+      title: "Create a Rhythm! ⭐",
+      instruction: "Make up your own rhythm pattern! Mix long Booms and short Ticks however you like!",
+      drumPads: DRUM_PADS,
+      backgroundBeat: { bpm: 110 },
+      minTaps: 8,
+    },
+  ],
+  reflections: {
+    6: {
+      prompt: "What kind of rhythms do you like?",
+      optionA: { label: "Long steady booms! 🥁", value: "long" },
+      optionB: { label: "Quick snappy ticks! 🔔", value: "short" },
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 4: Meet the Piano (6 steps, ~5 min)
+// Orff: Transition from unpitched to pitched percussion; pentatonic safety net
+// Kolb: Free explore → Hear staircase → Name keys → Create a tune
+// ═══════════════════════════════════════════════════════════════════════════════
+const lesson4: LessonData = {
+  name: "Lesson 4: Meet the Piano",
+  steps: [
+    // 0 — Concrete Experience: free exploration with pentatonic (no wrong sounds!)
+    {
+      type: "explore",
+      title: "Try It Yourself! 🎹",
+      instruction: "No rules yet — just tap any keys and listen. What sounds interesting to you?",
+      notes: PENTATONIC_DIMMED_KEYS,
+      minTaps: 4,
+    },
+    // 1 — Listen: hear the pentatonic scale ascending
     {
       type: "listen",
       title: "The Sound Staircase 🪜",
-      instruction: "Tap to hear all 7 notes climbing from low to high. Like walking up stairs!",
-      content: "Listen to the notes go from low to high — each one is a step up the staircase! The first note is deep and warm, and each step gets a little brighter.",
-      previewNotes: ["C4", "D4", "E4", "F4", "G4", "A4", "B4"],
+      instruction: "Tap to hear these 5 special notes climbing from low to high!",
+      content: "Listen to the notes go from low to high — each one is a step up the staircase! These 5 notes are special — they always sound good together, no matter what order you play them!",
+      previewNotes: ["C4", "D4", "E4", "G4", "A4"],
     },
-    // 3 — Explore: try low and high keys (middle greyed out)
+    // 2 — Abstract Conceptualization: name the keys (AFTER exploration)
+    {
+      type: "watch",
+      title: "Meet Your Piano! 🎹",
+      instruction: "Let's learn about the keys you just played!",
+      content: "Piano keys have letter names! The ones you played are C, D, E, G, and A. Left side is low, right side is high. These 5 notes are called the pentatonic scale — and they always sound beautiful together! No matter what order you play them, it sounds like music.",
+    },
+    // 3 — Active Experimentation: play all 5 by name
+    {
+      type: "explore",
+      title: "Play Them All! 🎵",
+      instruction: "Now that you know their names, play all 5! Go low to high, high to low, or jump around!",
+      notes: PENTATONIC_KEYS,
+      minTaps: 5,
+    },
+    // 4 — Assessment: ear training
+    {
+      type: "quiz",
+      quizLayout: "piano",
+      title: "Which Is Lower? 🐻",
+      instruction: "Listen to each sound. Which one sounds the LOWEST?",
+      options: [
+        { label: "1", correct: true, emoji: "🐻", note: "C3", discoveryText: "Yes! That's the lowest sound — deep and warm!" },
+        { label: "2", correct: false, emoji: "🎵", note: "E4", discoveryText: "That one is in the middle! The lowest sound is deeper. Try sound 1!" },
+        { label: "3", correct: false, emoji: "🐦", note: "A4", discoveryText: "That's actually the highest! The lowest is sound 1!" },
+      ],
+    },
+    // 5 — Creation: make a pentatonic tune
+    {
+      type: "explore",
+      title: "Make a Tune! ⭐",
+      instruction: "Make up your own little tune with these 5 notes. There are NO wrong sounds — everything sounds beautiful!",
+      notes: PENTATONIC_KEYS,
+      minTaps: 6,
+    },
+  ],
+  reflections: {
+    5: {
+      prompt: "What did you notice about the piano?",
+      optionA: { label: "Low notes are deep! 🐻", value: "low" },
+      optionB: { label: "High notes are bright! 🐦", value: "high" },
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 5: High and Low (7 steps, ~6 min)
+// Orff: Pitch exploration within pentatonic context
+// Kolb: Explore extremes → Hear staircase → Name high/low → Create contrasts
+// ═══════════════════════════════════════════════════════════════════════════════
+const lesson5: LessonData = {
+  name: "Lesson 5: High and Low",
+  steps: [
+    // 0 — Warm up: reconnect with pentatonic piano
+    {
+      type: "explore",
+      title: "Warm Up! 🎹",
+      instruction: "Welcome back! Play any keys to warm up. Remember — no wrong sounds!",
+      notes: PENTATONIC_KEYS,
+      minTaps: 4,
+    },
+    // 1 — Concrete Experience: explore extremes (low C vs high A highlighted)
     {
       type: "explore",
       title: "Go Low, Go High! 🐻🐦",
-      instruction: "Try the LEFT keys for low bear sounds... now try the RIGHT keys for high bird sounds!",
-      notes: LOW_HIGH_KEYS,
+      instruction: "Try the LEFT keys for deep sounds... now try the RIGHT keys for bright sounds!",
+      notes: LOW_HIGH_PENTATONIC_KEYS,
       minTaps: 5,
     },
-    // 4 — Quiz: Which is lower? (ear training, no note names)
+    // 2 — Reflective Observation: name with metaphor (AFTER exploration)
+    {
+      type: "watch",
+      title: "Sounds Go Up and Down! 📏",
+      instruction: "Let's name what you just heard!",
+      content: "Notes on the LEFT side sound LOW — like a big bear growling 🐻. Notes on the RIGHT side sound HIGH — like a little bird singing 🐦! Music moves up and down like climbing stairs. Low notes feel deep and warm, high notes feel bright and light!",
+    },
+    // 3 — Listen: hear pentatonic ascending staircase
+    {
+      type: "listen",
+      title: "The Sound Staircase 🪜",
+      instruction: "Listen to the notes climb from low to high — each step gets a little brighter!",
+      content: "Each note is a step up the staircase! C is the lowest, then D, E, G, and A is the highest. Going up sounds bright and hopeful. Going down sounds deep and calm.",
+      previewNotes: ["C4", "D4", "E4", "G4", "A4"],
+    },
+    // 4 — Quiz: which is lower?
     {
       type: "quiz",
       quizLayout: "piano",
@@ -205,11 +467,11 @@ const lesson3: LessonData = {
       instruction: "Listen to each sound. Which one sounds the LOWEST — like a big bear?",
       options: [
         { label: "1", correct: true, emoji: "🐻", note: "C3", discoveryText: "Yes! That's the lowest sound — deep and warm like a bear!" },
-        { label: "2", correct: false, emoji: "🎵", note: "E4", discoveryText: "That one is in the middle! The bear sound is even deeper. Try sound 1!" },
-        { label: "3", correct: false, emoji: "🐦", note: "B4", discoveryText: "That's actually the highest sound! It sings like a bird. The bear sound is 1!" },
+        { label: "2", correct: false, emoji: "🎵", note: "E4", discoveryText: "That's in the middle! The bear sound is even deeper. Try sound 1!" },
+        { label: "3", correct: false, emoji: "🐦", note: "A4", discoveryText: "That's the highest sound — it sings like a bird. The bear sound is 1!" },
       ],
     },
-    // 5 — Quiz: Which is higher? (ear training, no note names)
+    // 5 — Quiz: which is higher?
     {
       type: "quiz",
       quizLayout: "piano",
@@ -217,45 +479,48 @@ const lesson3: LessonData = {
       instruction: "Now listen again. Which sound is the HIGHEST — like a little bird?",
       options: [
         { label: "1", correct: false, emoji: "🐻", note: "C3", discoveryText: "That's the low one — the bear! The bird sound is much higher. Try sound 3!" },
-        { label: "2", correct: false, emoji: "🎵", note: "E4", discoveryText: "That one is in the middle — higher than the bear but not the highest. The bird is sound 3!" },
-        { label: "3", correct: true, emoji: "🐦", note: "B4", discoveryText: "That's right! That's the highest — it sings like a little bird!" },
+        { label: "2", correct: false, emoji: "🎵", note: "E4", discoveryText: "That's in the middle — higher than the bear but not the highest. The bird is sound 3!" },
+        { label: "3", correct: true, emoji: "🐦", note: "A4", discoveryText: "That's right! That's the highest — it sings like a little bird!" },
       ],
     },
-    // 6 — Explore: make a high-low tune (middle greyed out)
+    // 6 — Creation: mix high and low
     {
       type: "explore",
       title: "Make a High-Low Tune! ⭐",
-      instruction: "Mix low and high notes together! Try jumping from one side to the other. What patterns can you make?",
-      notes: LOW_HIGH_KEYS,
+      instruction: "Mix low and high notes together! Try jumping from one end to the other. What patterns can you make?",
+      notes: PENTATONIC_KEYS,
       minTaps: 6,
     },
   ],
   reflections: {},
 };
 
-// ─── LESSON 3: Your First Notes (8 steps, ~8 min) ──────────────────────────
-// Concept: Notes have letter names! Learn C, D, E.
-// Theory: Constructivism (build on high/low) + Experiential + Humanism (reflection)
-const lesson4: LessonData = {
-  name: "Lesson 4: Your First Notes",
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 6: My First Notes (8 steps, ~8 min)
+// Orff: Named pitches within pentatonic; imitation → exploration → creation
+// Kolb: Hear each note → Explore individually → Play sequence → Create freely
+// Constructivist: scaffold note-by-note, building on pitch direction from L5
+// ═══════════════════════════════════════════════════════════════════════════════
+const lesson6: LessonData = {
+  name: "Lesson 6: My First Notes",
   steps: [
-    // 0 — Warm up
+    // 0 — Warm up on pentatonic
     {
       type: "explore",
       title: "Warm Up! 🎹",
-      instruction: "Welcome back! Play any keys to warm up your fingers. Remember — low on the left, high on the right!",
-      notes: ALL_KEYS,
+      instruction: "Play any keys to warm up — remember, low on the left, high on the right!",
+      notes: PENTATONIC_KEYS,
       minTaps: 4,
     },
-    // 1 — Listen: Meet note C
+    // 1 — Listen: meet note C
     {
       type: "listen",
       title: "Meet Note C! 🌟",
-      instruction: "This is C — the first note! It's like home base. Tap to hear what C sounds like.",
+      instruction: "This is C — the first note! Tap to hear what C sounds like.",
       content: "C is the first note of music. Think of C as 'home' — songs love to start and end here! C has a warm, steady sound.",
       previewNotes: ["C4"],
     },
-    // 2 — Explore: Play only C (guided, single key)
+    // 2 — Explore: play only C
     {
       type: "explore",
       title: "Play Only C! 🌟",
@@ -263,7 +528,7 @@ const lesson4: LessonData = {
       notes: [{ note: "C", label: "C", color: "#FFB800" }],
       minTaps: 3,
     },
-    // 3 — Listen: Meet D and E
+    // 3 — Listen: meet D and E
     {
       type: "listen",
       title: "Meet D and E! 🎵",
@@ -271,7 +536,7 @@ const lesson4: LessonData = {
       content: "D is one step up from C. E is another step up! Together, C, D, E are like climbing 3 stairs. Each step goes a little higher.",
       previewNotes: ["C4", "D4", "E4"],
     },
-    // 4 — Explore: Try D and E (guided, two keys)
+    // 4 — Explore: try D and E
     {
       type: "explore",
       title: "Try D and E! 🎵",
@@ -282,27 +547,28 @@ const lesson4: LessonData = {
       ],
       minTaps: 3,
     },
-    // 5 — Play: C, D, E in order
+    // 5 — Play: guided sequence C-D-E
     {
       type: "play",
       title: "Play C, D, E! 🎹",
       instruction: "Tap the notes from low to high: C, then D, then E. Use Listen First if you need a reminder!",
       notes: CDE_KEYS,
+      sequence: ["C", "D", "E"],
     },
-    // 6 — Explore: creative play with C, D, E
+    // 6 — Creation: make a tune with C, D, E
     {
       type: "explore",
       title: "Make a Tune With C, D, E! ⭐",
-      instruction: "You know three notes now! Play them in any order — make up your own little tune. There's no wrong way to be creative!",
+      instruction: "You know three notes now! Play them in any order — make up your own little tune. There's no wrong way!",
       notes: CDE_KEYS,
       minTaps: 6,
     },
-    // 7 — Explore: bonus — try all 7
+    // 7 — Bonus: expand back to full pentatonic
     {
       type: "explore",
-      title: "Bonus: Try All 7! 🌈",
-      instruction: "You've learned 3 notes — now explore the rest! All 7 keys are unlocked. See what sounds you can discover!",
-      notes: ALL_KEYS,
+      title: "Pentatonic Playground! 🌈",
+      instruction: "You've learned 3 notes — now explore all 5 again! Hear how C, D, E fit together with G and A?",
+      notes: PENTATONIC_KEYS,
       minTaps: 5,
     },
   ],
@@ -315,101 +581,16 @@ const lesson4: LessonData = {
   },
 };
 
-// ─── LESSON 5: Rhythm & Beat (7 steps, ~7 min) ─────────────────────────────
-// Concept: Music has a steady beat; sounds can be long or short; patterns repeat
-// Theory: Constructivism (explore before explain) + Experiential (hands-on drumming)
-const DRUM_PADS = [
-  { id: "boom", label: "Boom", emoji: "🥁", color: "#3ECFA4", sound: "kick" as const },
-  { id: "tick", label: "Tick", emoji: "🔔", color: "#4AABF5", sound: "hihat" as const },
-];
-
-const lesson5: LessonData = {
-  name: "Lesson 5: Rhythm & Beat",
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 7: My First Song (8 steps, ~10 min)
+// Orff: Imitation of real melody, then improvisation; ostinato introduced (D-D-D)
+// Kolb: Hear melody → Learn chunks → Play full → Create your own version
+// Constructivist: scaffolded phrase-by-phrase, then creative ownership
+// ═══════════════════════════════════════════════════════════════════════════════
+const lesson7: LessonData = {
+  name: "Lesson 7: My First Song",
   steps: [
-    // 0 — Explore: feel the beat (tap anywhere, pulsing circle, background beat)
-    {
-      type: "explore",
-      title: "Feel the Beat! 💓",
-      instruction: "Music has a heartbeat! Tap anywhere to join in with the beat. Can you keep up?",
-      tapAnywhere: true,
-      pulsingCircle: true,
-      backgroundBeat: { bpm: 100 },
-      minTaps: 8,
-    },
-    // 1 — Watch: heartbeat metaphor
-    {
-      type: "watch",
-      title: "Music Has a Heartbeat! 💓",
-      instruction: "Let's learn about the beat — the heartbeat of music!",
-      content: "Every song has a BEAT — like a heartbeat that never stops! When you clap along to a song, you're feeling the beat. Some beats are fast, some are slow, but the beat keeps going steady, like a clock ticking. The beat is what makes you want to move and dance!",
-    },
-    // 2 — Listen: meet the drum pads
-    {
-      type: "listen",
-      title: "Meet the Drums! 🥁",
-      instruction: "Tap each drum to hear its sound. Boom is deep. Tick is bright!",
-      content: "Drums are the heartbeat of a band! The big drum goes BOOM — deep and strong. The small one goes TICK — bright and quick. Together they make rhythm patterns!",
-      drumPads: DRUM_PADS,
-    },
-    // 3 — Explore: free play with drum pads
-    {
-      type: "explore",
-      title: "Free Drumming! 🥁",
-      instruction: "Make your own beats! Tap Boom and Tick in any order you like. There's no wrong rhythm!",
-      drumPads: DRUM_PADS,
-      minTaps: 6,
-    },
-    // 4 — Play: pattern matching (3 rounds)
-    {
-      type: "play",
-      title: "Copy the Pattern! 🎯",
-      instruction: "Listen to the pattern, then copy it with the drum pads. Can you match all 3 rounds?",
-      drumPads: DRUM_PADS,
-      rhythmPatterns: [
-        { sequence: ["kick", "kick", "hihat", "hihat"], bpm: 120 },
-        { sequence: ["kick", "hihat", "kick", "hihat"], bpm: 120 },
-        { sequence: ["kick", "kick", "hihat", "kick", "hihat"], bpm: 130 },
-      ],
-    },
-    // 5 — Quiz: visual block notation (2 questions shown sequentially)
-    {
-      type: "quiz",
-      title: "Read the Rhythm! 📖",
-      instruction: "Look at the blocks! Wide = Boom (long), narrow = Tick (short). Which pattern matches what you hear?",
-      rhythmQuizOptions: [
-        { pattern: ["long", "long", "short", "short"], correct: true, label: "Boom Boom Tick Tick" },
-        { pattern: ["short", "short", "long", "long"], correct: false, label: "Tick Tick Boom Boom" },
-        { pattern: ["long", "short", "long", "short"], correct: true, label: "Boom Tick Boom Tick" },
-        { pattern: ["short", "long", "short", "long"], correct: false, label: "Tick Boom Tick Boom" },
-      ],
-    },
-    // 6 — Explore: drum circle with background beat + reflection
-    {
-      type: "explore",
-      title: "Drum Circle! 🎶",
-      instruction: "Play along with the beat! Add your own Booms and Ticks on top. Feel the groove!",
-      drumPads: DRUM_PADS,
-      backgroundBeat: { bpm: 110 },
-      minTaps: 8,
-    },
-  ],
-  reflections: {
-    6: {
-      prompt: "How did the drum circle make you feel?",
-      optionA: { label: "I felt the groove! 🎶", value: "groove" },
-      optionB: { label: "I liked making patterns! 🧩", value: "patterns" },
-    },
-  },
-};
-
-// ─── LESSON 6: Your First Song (8 steps, ~8 min) ─────────────────────────────
-// Concept: A melody is a series of notes that tell a musical story. You can play one!
-// Theory: Constructivism (scaffolded, chunked mastery) + Humanism (ownership, creative reinterpretation)
-// Song: "Hot Cross Buns" — E-D-C, D-D-D, E-D-C (uses only C, D, E)
-const lesson6: LessonData = {
-  name: "Lesson 6: Your First Song",
-  steps: [
-    // 0 — Explore: Warm Up with C, D, E (re-activate prior knowledge)
+    // 0 — Warm up with C, D, E
     {
       type: "explore",
       title: "Warm Up! 🎹",
@@ -417,22 +598,22 @@ const lesson6: LessonData = {
       notes: CDE_KEYS,
       minTaps: 4,
     },
-    // 1 — Watch: Notes Tell Stories (bridging analogy — constructivism)
+    // 1 — Listen: hear the full melody
+    {
+      type: "listen",
+      title: "Hear a Melody 🎵",
+      instruction: "Tap to hear a real melody played with just three notes! Watch the keys light up.",
+      content: "This melody is called 'Hot Cross Buns' — one of the most famous beginner songs! It uses only the three notes you already know: E, D, and C. Listen to how they go down like stairs.",
+      previewNotes: ["E4", "D4", "C4", "D4", "D4", "D4", "E4", "D4", "C4"],
+    },
+    // 2 — Reflective Observation: name what melody is
     {
       type: "watch",
       title: "Notes Tell Stories! 🎶",
       instruction: "Let's learn how notes make melodies!",
       content: "When you play notes in a row, they make a melody — like words making a sentence. A melody is a series of notes that tell a musical story. You already know C, D, and E — that's enough to play a real song!",
     },
-    // 2 — Listen: Hear "Hot Cross Buns" (observation phase — Kolb)
-    {
-      type: "listen",
-      title: "Hear a Melody 🎵",
-      instruction: "Tap to hear a real melody played with just three notes! Watch the keys light up as each note plays.",
-      content: "This melody is called 'Hot Cross Buns' — one of the most famous beginner songs! It uses only the three notes you already know: E, D, and C. Listen to how they go down like stairs.",
-      previewNotes: ["E4", "D4", "C4", "D4", "D4", "D4", "E4", "D4", "C4"],
-    },
-    // 3 — Play (guided): Learn Part 1 — E, D, C (scaffolded, zone of proximal development)
+    // 3 — Imitation: learn Part 1 (E-D-C)
     {
       type: "play",
       title: "Learn Part 1 🎹",
@@ -440,15 +621,15 @@ const lesson6: LessonData = {
       notes: CDE_KEYS,
       sequence: ["E", "D", "C"],
     },
-    // 4 — Play (guided): Learn Part 2 — D, D, D (chunked mastery)
+    // 4 — Imitation: learn Part 2 (D-D-D) — ostinato concept
     {
       type: "play",
       title: "Learn Part 2 🎹",
-      instruction: "Now the middle part: D, D, D — three times! Tap the glowing key.",
+      instruction: "Now the middle part: D, D, D — three times! This repeating pattern is called an ostinato!",
       notes: CDE_KEYS,
       sequence: ["D", "D", "D"],
     },
-    // 5 — Play (full): Put It Together — full melody (active experimentation)
+    // 5 — Play: full melody (active experimentation)
     {
       type: "play",
       title: "Put It Together! ⭐",
@@ -456,19 +637,19 @@ const lesson6: LessonData = {
       notes: CDE_KEYS,
       sequence: ["E", "D", "C", "D", "D", "D", "E", "D", "C"],
     },
-    // 6 — Explore: Make It Yours (ownership, creative reinterpretation)
+    // 6 — Improvisation: creative reinterpretation (Orff process)
     {
       type: "explore",
       title: "Make It Yours! ⭐",
-      instruction: "Can you change the song to sound different? Try mixing up the order of C, D, and E!",
+      instruction: "Can you change the song to sound different? Try mixing up the order of C, D, and E — create your own melody!",
       notes: CDE_KEYS,
       minTaps: 6,
     },
-    // 7 — Explore: How Did That Feel? (learner directs their path)
+    // 7 — Reflection + creative closure
     {
       type: "explore",
-      title: "How Did That Feel? 🌟",
-      instruction: "You just played your first song! You can keep playing, and tell us what you want to do next.",
+      title: "You Did It! 🌟",
+      instruction: "You just played your first song! Keep playing, or tell us what you want to do next.",
       notes: CDE_KEYS,
       minTaps: 0,
     },
@@ -476,51 +657,54 @@ const lesson6: LessonData = {
   reflections: {
     7: {
       prompt: "What do you want to do next?",
-      optionA: { label: "I want to play more songs! 🎵", value: "more_songs" },
-      optionB: { label: "I want to make my own! ✨", value: "create_own" },
+      optionA: { label: "Play more songs! 🎵", value: "more_songs" },
+      optionB: { label: "Make my own! ✨", value: "create_own" },
     },
   },
 };
 
-// ─── LESSON 7: Loud and Soft (6 steps, ~5 min) ─────────────────────────────
-// Concept: Dynamics — sounds can be soft or loud; you control volume with touch
-// Theory: Experiential (feel volume) + Constructivism (name what they feel)
-// No Italian terms (forte/piano) — just "soft" and "loud"
-const lesson7: LessonData = {
-  name: "Lesson 7: Loud and Soft",
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 8: Loud and Soft (7 steps, ~6 min)
+// Orff: Dynamics through body percussion FIRST, then piano (body → instrument)
+// Kolb: Feel volume with body → Hear on piano → Name dynamics → Create with volume
+// ═══════════════════════════════════════════════════════════════════════════════
+const lesson8: LessonData = {
+  name: "Lesson 8: Loud and Soft",
   steps: [
-    // 0 — Warm up: standard free explore
+    // 0 — Body percussion warm-up with volume awareness
     {
       type: "explore",
-      title: "Warm Up! 🎹",
-      instruction: "Welcome back! Play any keys to warm up your fingers.",
-      notes: ALL_KEYS,
-      minTaps: 4,
+      title: "Warm Up! 👏",
+      instruction: "Tap along with the beat! Try tapping softly... now try tapping HARD!",
+      tapAnywhere: true,
+      pulsingCircle: true,
+      backgroundBeat: { bpm: 100 },
+      minTaps: 6,
     },
-    // 1 — Listen: hear the difference between soft and loud
+    // 1 — Concrete Experience: hear the same note soft vs loud
     {
       type: "listen",
       title: "Soft and Loud! 🔊",
       instruction: "Tap to hear the SAME note played two ways — first soft, then LOUD! Watch the wave change size.",
-      content: "Music isn't just about which note you play — it's also about HOW you play it! A soft note sounds gentle and quiet. A loud note sounds bold and strong. The same note can feel totally different!",
+      content: "The same note can feel totally different! A soft note sounds gentle and quiet. A loud note sounds bold and strong. You can control this!",
       previewNotes: ["C4", "C4"],
       previewVelocities: [0.2, 0.9],
     },
-    // 2 — Explore: velocity-sensitive keys (tap position → volume)
+    // 2 — Transfer to piano: velocity-sensitive keys
     {
       type: "explore",
       title: "Touch and Feel! 🎹",
-      instruction: "Try tapping the TOP of a key for soft... and the BOTTOM for loud! Hear the difference?",
-      notes: ALL_KEYS,
+      instruction: "Tap the TOP of a key for soft... and the BOTTOM for loud! Hear the difference?",
+      notes: PENTATONIC_KEYS,
       velocitySensitive: true,
       minTaps: 6,
     },
-    // 3 — Play: dynamic match game (3 emoji scenes)
+    // 3 — Play: dynamic scene matching
     {
       type: "play",
       title: "Match the Scene! 🎭",
       instruction: "Each scene needs a different volume. Play softly or loudly to match!",
-      notes: ALL_KEYS,
+      notes: PENTATONIC_KEYS,
       velocitySensitive: true,
       dynamicScenes: [
         { emoji: "😴", label: "Baby sleeping", level: "soft", emojiMedium: "😒", emojiBad: "😭" },
@@ -528,7 +712,7 @@ const lesson7: LessonData = {
         { emoji: "🐱", label: "Sneaky cat", level: "soft", emojiMedium: "🙀", emojiBad: "😾" },
       ],
     },
-    // 4 — Quiz: dynamics audio quiz (4 questions)
+    // 4 — Quiz: ear training
     {
       type: "quiz",
       title: "Soft or Loud? 🤔",
@@ -540,18 +724,25 @@ const lesson7: LessonData = {
         { note: "D4", velocity: 0.85, answer: "loud" },
       ],
     },
-    // 5 — Explore: free play with velocity + reflection
+    // 5 — Abstract Conceptualization: name dynamics (AFTER feeling them)
+    {
+      type: "watch",
+      title: "You Control the Volume! 🔊",
+      instruction: "Let's name what you've been doing!",
+      content: "How HARD you play makes a big difference! Soft playing sounds gentle and calm. Loud playing sounds bold and exciting. In music, this is called dynamics — and YOU control it! Musicians use dynamics to tell stories and create feelings.",
+    },
+    // 6 — Creation: dynamic storytelling
     {
       type: "explore",
       title: "Your Dynamic Story! ⭐",
-      instruction: "Play any notes soft or loud — tell a story with volume! Start quiet and get louder, or mix it up!",
-      notes: ALL_KEYS,
+      instruction: "Tell a story with volume! Start quiet and get louder, or mix it up. What story does your music tell?",
+      notes: PENTATONIC_KEYS,
       velocitySensitive: true,
       minTaps: 8,
     },
   ],
   reflections: {
-    5: {
+    6: {
       prompt: "What did you like more?",
       optionA: { label: "Playing softly 🤫", value: "soft" },
       optionB: { label: "Playing loudly! 📢", value: "loud" },
@@ -559,25 +750,37 @@ const lesson7: LessonData = {
   },
 };
 
-// ─── LESSON 8: Fast and Slow (6 steps, ~5 min) ─────────────────────────────
-// Concept: Music can move quickly or slowly — this is called tempo.
-// Theory: Experiential (hear/feel tempo contrast) + Constructivism (slider gives learner control)
-const lesson8: LessonData = {
-  name: "Lesson 8: Fast and Slow",
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 9: Fast and Slow (7 steps, ~6 min)
+// Orff: Tempo through body movement FIRST, then instruments
+// Kolb: Feel tempo in body → Hear contrast → Control slider → Create at chosen speed
+// ═══════════════════════════════════════════════════════════════════════════════
+const lesson9: LessonData = {
+  name: "Lesson 9: Fast and Slow",
   steps: [
-    // 0 — Listen: hear the same melody at two speeds (tortoise vs rabbit)
+    // 0 — Body percussion warm-up with tempo awareness
+    {
+      type: "explore",
+      title: "Warm Up! 👏",
+      instruction: "Tap along with the beat! Is this fast or slow?",
+      tapAnywhere: true,
+      pulsingCircle: true,
+      backgroundBeat: { bpm: 100 },
+      minTaps: 4,
+    },
+    // 1 — Concrete Experience: hear same melody at two speeds
     {
       type: "listen",
       title: "Two Speeds! 🐢🐇",
-      instruction: "Tap to hear the same melody played two ways — first slow like a tortoise, then fast like a rabbit!",
-      content: "Music can move slowly or quickly — this is called TEMPO! A slow tempo feels calm and relaxed. A fast tempo feels exciting and energetic. The same notes can feel totally different depending on the speed!",
+      instruction: "Tap to hear the same melody slow, then fast! Feel how different they are.",
+      content: "Music can move slowly or quickly — this is called TEMPO! A slow tempo feels calm and relaxed. A fast tempo feels exciting and energetic. The same notes feel totally different depending on the speed!",
       tempoListenDemo: {
         slowBpm: 80,
         fastBpm: 180,
         sequence: ["C", "D", "E", "D", "C"],
       },
     },
-    // 1 — Explore: tempo slider with looping beat + character animation
+    // 2 — Active Experimentation: tempo slider
     {
       type: "explore",
       title: "Speed Control! 🎚️",
@@ -587,7 +790,7 @@ const lesson8: LessonData = {
       tempoSliderMinMoves: 3,
       minTaps: 0,
     },
-    // 2 — Play: guided sequence at slow pulse
+    // 3 — Play: guided sequence at slow tempo
     {
       type: "play",
       title: "Slow Song 🐢",
@@ -596,7 +799,7 @@ const lesson8: LessonData = {
       sequence: ["C", "D", "E", "D", "C"],
       pulseGuide: { bpm: 80 },
     },
-    // 3 — Play: same melody at fast pulse
+    // 4 — Play: same melody at fast tempo
     {
       type: "play",
       title: "Fast Song 🐇",
@@ -605,7 +808,7 @@ const lesson8: LessonData = {
       sequence: ["C", "D", "E", "D", "C"],
       pulseGuide: { bpm: 160 },
     },
-    // 4 — Quiz: categorize 4 audio clips as fast or slow
+    // 5 — Quiz: categorize audio clips
     {
       type: "quiz",
       title: "Fast or Slow? 🤔",
@@ -617,7 +820,7 @@ const lesson8: LessonData = {
         { sequence: ["D", "E", "C"], bpm: 170, answer: "fast" },
       ],
     },
-    // 5 — Explore: DJ Mode — piano keys + tempo slider, free play
+    // 6 — Creation: DJ Mode
     {
       type: "explore",
       title: "DJ Mode! 🎧",
@@ -630,7 +833,7 @@ const lesson8: LessonData = {
     },
   ],
   reflections: {
-    5: {
+    6: {
       prompt: "What speed do you like best?",
       optionA: { label: "Slow and chill 🐢", value: "slow" },
       optionB: { label: "Fast and exciting! 🐇", value: "fast" },
@@ -638,110 +841,23 @@ const lesson8: LessonData = {
   },
 };
 
-// ─── Key sets ────────────────────────────────────────────────────────────────
-const CDEFG_KEYS = [
-  { note: "C", label: "C", color: "#FFB800" },
-  { note: "D", label: "D", color: "#FF5C35" },
-  { note: "E", label: "E", color: "#4AABF5" },
-  { note: "F", label: "F", color: "#3ECFA4" },
-  { note: "G", label: "G", color: "#9C27B0" },
-];
-
-// ─── LESSON 9: Patterns in Music (7 steps, ~7 min) ──────────────────────────
-// Concept: Musical form — music is built from repeating (A-A) and contrasting (A-B) sections
-// Theory: Constructivism (hear before label) + Experiential (build your own form)
-const lesson9: LessonData = {
-  name: "Lesson 9: Patterns in Music",
-  steps: [
-    // 0 — Listen: hear A-A pattern (repeating)
-    {
-      type: "listen",
-      title: "Spot the Pattern! 🔵🔵",
-      instruction: "Tap to hear two parts. Do they sound the SAME or DIFFERENT?",
-      content: "Music loves patterns! Sometimes a part repeats — the same melody plays twice. That's called an A-A pattern. It feels familiar and safe, like hearing your favorite line of a song again!",
-      patternBlocks: [
-        { color: "#4AABF5", label: "A", notes: ["C", "E", "G", "E"] },
-        { color: "#4AABF5", label: "A", notes: ["C", "E", "G", "E"] },
-      ],
-    },
-    // 1 — Listen: hear A-B pattern (contrasting)
-    {
-      type: "listen",
-      title: "Something New! 🔵🟠",
-      instruction: "Now listen to these two parts. Are they the same or different?",
-      content: "Sometimes music changes! Part A sounds one way, then Part B sounds different. That's an A-B pattern. The contrast makes music exciting — like a story with a twist!",
-      patternBlocks: [
-        { color: "#4AABF5", label: "A", notes: ["C", "E", "G", "E"] },
-        { color: "#FF5C35", label: "B", notes: ["D", "F", "D", "C"] },
-      ],
-    },
-    // 2 — Watch: explain musical form
-    {
-      type: "watch",
-      title: "Music Has Shapes! 🧩",
-      instruction: "Let's learn about the shape of music!",
-      content: "Every song is built from sections — like building blocks! Section A is one musical idea. Section B is a different idea. When you put them together in patterns like A-A-B-A, you create a FORM — the shape of a whole song! Most songs you know use these simple patterns.",
-    },
-    // 3 — Quiz: same or different (4 rounds)
-    {
-      type: "quiz",
-      title: "Same or Different? 🤔",
-      instruction: "Listen to two phrases. Are they the SAME or DIFFERENT?",
-      patternQuiz: [
-        { phraseA: ["C", "E", "G"], phraseB: ["C", "E", "G"], answer: "same" },
-        { phraseA: ["C", "D", "E"], phraseB: ["E", "D", "C"], answer: "different" },
-        { phraseA: ["D", "F", "D"], phraseB: ["D", "F", "D"], answer: "same" },
-        { phraseA: ["C", "E", "G", "E"], phraseB: ["D", "F", "D", "C"], answer: "different" },
-      ],
-    },
-    // 4 — Play: learn Part A (guided sequence)
-    {
-      type: "play",
-      title: "Learn Part A 🔵",
-      instruction: "Play the A section: C-E-G-E. Follow the glowing notes!",
-      notes: CDEFG_KEYS,
-      sequence: ["C", "E", "G", "E"],
-    },
-    // 5 — Play: learn Part B (guided sequence)
-    {
-      type: "play",
-      title: "Learn Part B 🟠",
-      instruction: "Now play the B section: D-F-D-C. It sounds different from A!",
-      notes: CDEFG_KEYS,
-      sequence: ["D", "F", "D", "C"],
-    },
-    // 6 — Explore: form builder
-    {
-      type: "explore",
-      title: "Build Your Song! 🧩",
-      instruction: "Use A and B blocks to build your own song pattern! Add at least 2 sections, then hit Play to hear your creation!",
-      formBuilder: { sectionA: ["C", "E", "G", "E"], sectionB: ["D", "F", "D", "C"] },
-      minTaps: 0,
-    },
-  ],
-  reflections: {
-    6: {
-      prompt: "What pattern did you like best?",
-      optionA: { label: "Same parts (A-A) feel good! 🔵🔵", value: "repeat" },
-      optionB: { label: "Different parts (A-B) are fun! 🔵🟠", value: "contrast" },
-    },
-  },
-};
-
-// ─── LESSON 10: My Music — Capstone (6 steps, ~8 min) ────────────────────────
-// Concept: Tie everything together — choose instrument, set tempo, record phrases, compose!
-// Theory: Humanism (creative ownership) + Constructivism (synthesize prior knowledge)
+// ═══════════════════════════════════════════════════════════════════════════════
+// LESSON 10: My Music — Capstone (6 steps, ~8 min)
+// Orff: Full creative cycle — choose, set, compose, perform
+// Kolb: Full cycle culminating in original creation
+// Constructivist: synthesize all prior knowledge into original work
+// ═══════════════════════════════════════════════════════════════════════════════
 const lesson10: LessonData = {
   name: "Lesson 10: My Music",
   steps: [
-    // 0 — Watch: recap
+    // 0 — Watch: recap the journey
     {
       type: "watch",
       title: "You're a Musician! 🎉",
       instruction: "Look how far you've come!",
-      content: "You can play notes (C, D, E, F, G), high and low, loud and soft, fast and slow. You've played songs and built patterns. Now it's time for the most exciting part — making YOUR OWN music!",
+      content: "You started by making sounds with your body — clapping, tapping, feeling the beat! Then you learned drums, discovered the piano, played high and low, learned C, D, and E, and played your first song. You can play loud and soft, fast and slow. Now it's time for the most exciting part — making YOUR OWN music!",
     },
-    // 1 — Explore: instrument picker (persists choice)
+    // 1 — Explore: instrument picker
     {
       type: "explore",
       title: "Choose Your Sound! 🎶",
@@ -751,25 +867,25 @@ const lesson10: LessonData = {
       pickFavorite: true,
       capstoneInstrumentPicker: true,
     },
-    // 2 — Explore: tempo slider + velocity piano
+    // 2 — Explore: tempo + velocity + pentatonic piano
     {
       type: "explore",
       title: "Set the Stage! 🎚️",
       instruction: "Pick your speed and try playing soft and loud!",
-      notes: CDEFG_KEYS,
+      notes: PENTATONIC_KEYS,
       tempoSlider: true,
       tempoRange: [60, 180],
       tempoSliderMinMoves: 2,
       velocitySensitive: true,
       minTaps: 6,
     },
-    // 3 — Explore: recorder + form builder
+    // 3 — Explore: recorder + form builder with pentatonic
     {
       type: "explore",
       title: "Compose! 🎵",
       instruction: "Record two musical ideas (A and B), then arrange them into YOUR song!",
       recorder: true,
-      recorderKeys: CDEFG_KEYS,
+      recorderKeys: PENTATONIC_KEYS,
       minTaps: 0,
     },
     // 4 — Listen: composition playback
