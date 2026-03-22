@@ -39,7 +39,7 @@ export default function Lesson() {
   const lessonSteps = lessonData.steps;
   const reflectionPrompts = lessonData.reflections;
 
-  const { playNote, playSuccessChime, playErrorSound, playCelebration, playInstrumentNote, playDrumTap } = useAudio();
+  const { playNote, startNote, stopNote, playSuccessChime, playErrorSound, playCelebration, playInstrumentNote, playDrumTap } = useAudio();
   const [currentStep, setCurrentStep] = useState(0);
   const [playedNotes, setPlayedNotes] = useState<number[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -56,6 +56,26 @@ export default function Lesson() {
   const [bestMomentSaved, setBestMomentSaved] = useState(false);
   const [favoriteInstrument, setFavoriteInstrument] = useState<string | null>(null);
   const noteCountRef = useRef(0);
+
+  // ─── Sustain mode state ────────────────────────────────────────────────────
+  const [sustainedNote, setSustainedNote] = useState<string | null>(null);
+  const sustainStartRef = useRef<number>(0);
+
+  const handleSustainDown = (noteObj: { note: string }) => {
+    startNote(noteObj.note);
+    setSustainedNote(noteObj.note);
+    sustainStartRef.current = Date.now();
+  };
+
+  const handleSustainUp = (noteObj: { note: string }) => {
+    stopNote(noteObj.note);
+    const held = Date.now() - sustainStartRef.current;
+    if (held > 50) {
+      noteCountRef.current += 1;
+      setExploreTaps((prev) => prev + 1);
+    }
+    setSustainedNote(null);
+  };
 
   // ─── Sequence play state ─────────────────────────────────────────────────────
   const [sequencePosition, setSequencePosition] = useState(0);
@@ -1914,8 +1934,50 @@ export default function Lesson() {
           );
         })()}
 
-        {/* Explore exercise (piano notes — non-velocity, non-tempo, non-recorder) */}
-        {step.type === "explore" && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && !step.tempoSlider && !step.recorder && !step.choicePicker && step.notes && (
+        {/* Explore exercise (sustain mode — hold keys for long sounds, quick tap for short) */}
+        {step.type === "explore" && step.sustainMode && step.notes && (
+          <div className="animate-slide-up">
+            <div className="flex justify-center gap-3 mb-6 flex-wrap">
+              {step.notes.map((note, idx) => {
+                const isHeld = sustainedNote === note.note;
+                if (note.dimmed) {
+                  return (
+                    <div key={`${note.note}-${idx}`} className="flex flex-col items-center justify-center rounded-3xl select-none"
+                      style={{ width: "4.5rem", height: "7rem", background: "#F0EDE8", border: "4px solid #E5DDD0", color: "#CCC", boxShadow: "0 4px 0 #E5DDD055" }}>
+                      <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                    </div>
+                  );
+                }
+                return (
+                  <button key={`${note.note}-${idx}`}
+                    onPointerDown={() => handleSustainDown(note)}
+                    onPointerUp={() => handleSustainUp(note)}
+                    onPointerLeave={() => { if (sustainedNote === note.note) handleSustainUp(note); }}
+                    className="flex flex-col items-center justify-center rounded-3xl transition-all duration-150 shadow-lg select-none touch-none"
+                    style={{
+                      width: "4.5rem", height: "7rem",
+                      background: isHeld ? note.color : "white",
+                      border: `4px solid ${note.color}`,
+                      color: isHeld ? "white" : note.color,
+                      transform: isHeld ? "translateY(4px) scale(0.97)" : "translateY(0) scale(1)",
+                      boxShadow: isHeld ? `0 2px 0 ${note.color}88, 0 0 20px ${note.color}44` : `0 6px 0 ${note.color}55`,
+                    }}>
+                    <span className="text-3xl mb-1 font-display font-800" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.note}</span>
+                    <span className="text-sm font-display font-700" style={{ fontFamily: "'Baloo 2', cursive" }}>{note.label}</span>
+                    {isHeld && <span className="text-xs mt-1 animate-pulse">holding...</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-center text-base font-display font-700 mb-2" style={{ color: "#1A1A2E", fontFamily: "'Baloo 2', cursive" }}>Notes explored: {exploreTaps}</p>
+            <p className="text-center text-sm italic mb-3" style={{ color: "#999", fontFamily: "'DM Sans', sans-serif" }}>
+              Hold a key for a LONG sound. Quick tap for a SHORT sound!
+            </p>
+          </div>
+        )}
+
+        {/* Explore exercise (piano notes — non-velocity, non-tempo, non-recorder, non-sustain) */}
+        {step.type === "explore" && !step.sustainMode && !step.instruments && !step.drumPads && !step.tapAnywhere && !step.velocitySensitive && !step.tempoSlider && !step.recorder && !step.choicePicker && step.notes && (
           <div className="animate-slide-up">
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               {step.notes.map((note, idx) => {

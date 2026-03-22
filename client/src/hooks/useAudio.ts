@@ -37,6 +37,9 @@ const SIMPLE_NOTE_MAP: Record<string, string> = {
 
 let audioContext: AudioContext | null = null;
 
+// Active sustained notes — tracked for startNote/stopNote
+const activeNotes = new Map<string, { gain: GainNode; oscs: OscillatorNode[]; filter: BiquadFilterNode }>();
+
 function getAudioContext(): AudioContext {
   if (!audioContext) {
     audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -306,11 +309,117 @@ export function playInstrumentNote(instrument: string, note: string = "C4", dura
 }
 
 /**
+ * Start a sustained piano note (hold-to-play).
+ * The note plays indefinitely until stopNote() is called.
+ * Uses the same oscillator stack as playNote but without a timed release.
+ */
+export function startNote(note: string, velocity: number = 0.8): void {
+  try {
+    // Stop any existing note on this pitch first
+    stopNote(note);
+
+    const ctx = getAudioContext();
+    const freq = getFrequency(note);
+    const now = ctx.currentTime;
+    const v = Math.max(0, Math.min(1, velocity));
+
+    const masterGain = ctx.createGain();
+    const attack = 0.01;
+    const decay = 0.15;
+    const sustain = 0.4;
+
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.5 * v, now + attack);
+    masterGain.gain.linearRampToValueAtTime(sustain * 0.5 * v, now + attack + decay);
+    // Sustain indefinitely at this level — no scheduled release
+
+    const oscs: OscillatorNode[] = [];
+
+    // Primary sine
+    const osc1 = ctx.createOscillator();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(freq, now);
+    osc1.connect(masterGain);
+    osc1.start(now);
+    oscs.push(osc1);
+
+    // Triangle warmth (2nd harmonic)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    gain2.gain.setValueAtTime(0.3 * v, now);
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(freq * 2, now);
+    osc2.connect(gain2);
+    gain2.connect(masterGain);
+    osc2.start(now);
+    oscs.push(osc2);
+
+    // Brightness (3rd harmonic)
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    gain3.gain.setValueAtTime(0.1 * v, now);
+    osc3.type = "sine";
+    osc3.frequency.setValueAtTime(freq * 3, now);
+    osc3.connect(gain3);
+    gain3.connect(masterGain);
+    osc3.start(now);
+    oscs.push(osc3);
+
+    // Low-pass filter
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1500 + 1500 * v, now);
+    masterGain.connect(filter);
+    filter.connect(ctx.destination);
+
+    activeNotes.set(note, { gain: masterGain, oscs, filter });
+  } catch (err) {
+    console.warn("startNote failed:", err);
+  }
+}
+
+/**
+ * Stop a sustained note with a short fade-out release.
+ */
+export function stopNote(note: string): void {
+  const active = activeNotes.get(note);
+  if (!active) return;
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    const releaseTime = 0.15;
+
+    // Fade out
+    active.gain.gain.cancelScheduledValues(now);
+    active.gain.gain.setValueAtTime(active.gain.gain.value, now);
+    active.gain.gain.exponentialRampToValueAtTime(0.001, now + releaseTime);
+
+    // Stop oscillators after fade
+    active.oscs.forEach((osc) => {
+      try { osc.stop(now + releaseTime + 0.01); } catch { /* already stopped */ }
+    });
+
+    // Clean up after release
+    setTimeout(() => {
+      try {
+        active.filter.disconnect();
+        active.gain.disconnect();
+      } catch { /* already disconnected */ }
+    }, (releaseTime + 0.05) * 1000);
+  } catch (err) {
+    console.warn("stopNote failed:", err);
+  }
+  activeNotes.delete(note);
+}
+
+/**
  * React hook that returns a stable playNote function
  */
 export function useAudio() {
   return {
     playNote,
+    startNote,
+    stopNote,
     playSuccessChime,
     playErrorSound,
     playCelebration,

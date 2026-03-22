@@ -19,6 +19,7 @@ export interface LessonStep {
   pickFavorite?: boolean;
   minTaps?: number;
   quizLayout?: "piano" | "grid";
+  sustainMode?: boolean; // hold-to-play: pointer down starts note, pointer up stops it
   previewNotes?: string[]; // for listen steps — notes to play on tap
   sequence?: string[]; // for guided play steps — ordered note names to play e.g. ["E","D","C"]
   // Rhythm lesson fields
@@ -272,53 +273,43 @@ const lesson2: LessonData = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LESSON 3: Long and Short Sounds (7 steps, ~6 min)
-// Orff/Kodaly: Duration taught through rhythm spacing — "ta" (one per beat = long)
-// vs "ti-ti" (two per beat = short), plus piano notes for audible sustain contrast
-// Kolb: Hear piano contrast → Explore on piano → Learn drum patterns → Create
+// Core mechanic: SUSTAIN MODE — hold a piano key to hear it ring (long),
+// quick-tap for a short sound. Children feel the difference in their own hands.
+// Kolb: Hold vs tap on piano → Name long/short → Drum patterns → Create freely
 // ═══════════════════════════════════════════════════════════════════════════════
 const lesson3: LessonData = {
   name: "Lesson 3: Long and Short Sounds",
   steps: [
-    // 0 — Warm up: tap along with beat
+    // 0 — Concrete Experience: hold keys vs quick tap (sustainMode!)
     {
       type: "explore",
-      title: "Warm Up! 👏",
-      instruction: "Welcome back! Tap along with the beat to warm up!",
-      tapAnywhere: true,
-      pulsingCircle: true,
-      backgroundBeat: { bpm: 100 },
-      minTaps: 4,
-    },
-    // 1 — Concrete Experience: hear long vs short on piano (audible sustain difference)
-    {
-      type: "listen",
-      title: "Hear the Difference! 👂",
-      instruction: "Tap to hear two kinds of sounds. The first one rings out — the second ones are quick!",
-      content: "Listen! A LOW note rings out for a long time — it fills the air. But quick HIGH notes come and go fast! Music mixes these LONG sounds and SHORT sounds together to make rhythm.",
-      previewNotes: ["C4", "E4", "G4", "E4"],
-    },
-    // 2 — Exploration: try low keys (ring longer) vs high keys (feel quicker)
-    {
-      type: "explore",
-      title: "Long and Short! 🎹",
-      instruction: "Try the low keys on the left — hear how they ring out? Now tap the high keys on the right quickly! Low and slow, high and quick!",
-      notes: PENTATONIC_DIMMED_KEYS,
+      title: "Hold and Tap! 🎹",
+      instruction: "HOLD a key down and listen to it ring... now let go and give it a QUICK tap! Can you hear the difference?",
+      notes: PENTATONIC_KEYS,
+      sustainMode: true,
       minTaps: 6,
     },
-    // 3 — Watch: name the concept (AFTER hearing it)
+    // 1 — Guided Exploration: try making long and short sounds deliberately
+    {
+      type: "explore",
+      title: "Long... and Short! 🎵",
+      instruction: "Hold C down for a LONG sound... now quick-tap E for a SHORT sound! Try it with every key!",
+      notes: PENTATONIC_KEYS,
+      sustainMode: true,
+      minTaps: 6,
+    },
+    // 2 — Reflective Observation: name what they felt (AFTER experiencing it)
     {
       type: "watch",
-      title: "Rhythm Has a Shape! 🧩",
-      instruction: "Let's name what you just heard!",
-      content: "Music is made of LONG and SHORT sounds! A long sound takes up more space — like saying 'waaalk.' A short sound is quick — like saying 'run-ning!' When you mix them together, you get RHYTHM — the pattern of long and short that makes music feel alive!",
+      title: "You Made Long and Short Sounds! 🧩",
+      instruction: "Let's name what you just did!",
+      content: "When you HELD a key down, the sound rang out for a long time — that's a LONG sound! When you gave it a quick tap, the sound was short and snappy — that's a SHORT sound! All music is made of long and short sounds mixed together. It's like speaking: 'waaalk' is long, 'run' is short!",
     },
-    // 4 — Imitation: copy drum patterns that demonstrate spacing contrast
-    //     Pattern 1: slow steady hits (long), Pattern 2: quick double hits (short),
-    //     Pattern 3: mix of both
+    // 3 — Apply to drums: copy patterns with long gaps vs quick double hits
     {
       type: "play",
       title: "Copy the Pattern! 🎯",
-      instruction: "Listen to each pattern. Some have long gaps between hits, some have quick double taps!",
+      instruction: "Now try it on drums! Listen to each pattern — some sounds have space between them (long), some are close together (short)!",
       drumPads: DRUM_PADS,
       rhythmPatterns: [
         { sequence: ["kick", "kick", "kick", "kick"], bpm: 90 },
@@ -326,33 +317,33 @@ const lesson3: LessonData = {
         { sequence: ["kick", "hihat", "hihat", "kick", "hihat", "hihat"], bpm: 130 },
       ],
     },
-    // 5 — Quiz: visual block notation
+    // 4 — Quiz: visual block reading
     {
       type: "quiz",
       title: "Read the Rhythm! 📖",
       instruction: "Wide blocks take up more time (LONG). Narrow blocks are quick (SHORT). Which pattern matches?",
       rhythmQuizOptions: [
-        { pattern: ["long", "short", "short", "long"], correct: true, label: "Walk  run-ning  walk" },
-        { pattern: ["short", "long", "long", "short"], correct: false, label: "Run  walk  walk  run" },
-        { pattern: ["long", "long", "short", "short"], correct: true, label: "Walk  walk  run-ning" },
-        { pattern: ["short", "short", "long", "long"], correct: false, label: "Run-ning  walk  walk" },
+        { pattern: ["long", "short", "short", "long"], correct: true, label: "Loooong  quick quick  loooong" },
+        { pattern: ["short", "long", "long", "short"], correct: false, label: "Quick  loooong  loooong  quick" },
+        { pattern: ["long", "long", "short", "short"], correct: true, label: "Loooong  loooong  quick quick" },
+        { pattern: ["short", "short", "long", "long"], correct: false, label: "Quick quick  loooong  loooong" },
       ],
     },
-    // 6 — Creation: mix long and short freely
+    // 5 — Creation: mix long holds and short taps on piano
     {
       type: "explore",
-      title: "Create a Rhythm! ⭐",
-      instruction: "Make your own pattern! Try slow steady taps, then quick double taps. Mix long and short however you like!",
-      drumPads: DRUM_PADS,
-      backgroundBeat: { bpm: 110 },
+      title: "Your Long-Short Song! ⭐",
+      instruction: "Make your own pattern! Hold some notes looong, tap others quick. Tell a story with long and short sounds!",
+      notes: PENTATONIC_KEYS,
+      sustainMode: true,
       minTaps: 8,
     },
   ],
   reflections: {
-    6: {
-      prompt: "What kind of rhythms do you like?",
-      optionA: { label: "Long and steady! 🚶", value: "long" },
-      optionB: { label: "Quick and bouncy! 🏃", value: "short" },
+    5: {
+      prompt: "What kind of sounds do you like?",
+      optionA: { label: "Long ringing sounds! 🎶", value: "long" },
+      optionB: { label: "Quick snappy taps! 🏃", value: "short" },
     },
   },
 };
