@@ -2,7 +2,7 @@
 
 | Field           | Value                                                                |
 | --------------- | -------------------------------------------------------------------- |
-| Version         | 0.2 (2026-05-11) — first audit pass; replaces 0.1 unverified claims  |
+| Version         | 0.3 (2026-05-11) — second audit pass; replaces 0.2 (which replaced 0.1) |
 | Status          | v1 shipped (frontend-only, deployable as static client or Node app)  |
 | Owner           | Quan Le                                                              |
 | Audience        | Future contributors and self — for product intent and scope decisions |
@@ -102,7 +102,7 @@ These drive lesson order, interaction patterns, and the audio engine. A contribu
 | ---------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **Orff Schulwerk**     | Body → unpitched percussion → pitched instruments. L1 is clapping; melodic notes don't appear until L4. | `client/src/data/lessons.ts` lesson order             |
 | **Kolb experiential**  | Every lesson is Experience → Observe → Conceptualize → Experiment. Do before name. | Step types `explore`/`play` (do) → `watch`/`listen` (observe) → `quiz` (test understanding) |
-| **Constructivism**     | No punishment. Wrong = wobble + gentle prompt. Correct = color flood + chime.     | `Lesson.tsx` quiz feedback handlers (`:905-912`)          |
+| **Constructivism**     | No punishment. Wrong answer keeps the option active for a re-try — coral feedback + error chime, no score loss. Correct answer turns the option mint with a success chime. (README mentions a "wobble" animation; not in code today — see AC-5.1.) | `Lesson.tsx` quiz feedback handlers (`:905-912`, render at `:2801-2831`) |
 | **Pentatonic default** | C-D-E-G-A. F and B visually dimmed until L5. Mashing keys sounds intentional.     | `PENTATONIC_KEYS`, `PENTATONIC_DIMMED_KEYS` (`lessons.ts:72-89`) |
 | **Letter names only (UX rule)** | C-D-E-F-G-A-B. Lesson copy never uses Do-Re-Mi. | Lesson copy in `lessons.ts`; reinforced in user memory `feedback_no_solfege.md` |
 
@@ -179,12 +179,12 @@ Sustain mode is the dominant mechanic but the lesson also uses a duration quiz t
 
 **Lives entirely in `Lesson.tsx` state** — no dedicated hook. The misnamed `client/src/hooks/useComposition.ts` is an **IME text-input helper** unrelated to music; do not refactor capstone logic into it.
 
-Capstone state (`Lesson.tsx:127-138`):
+Capstone state (`Lesson.tsx:128-135`, all `useState` hooks under the `// ─── Capstone / Recording state` block):
 
-- `capstoneInstrument: string | null` — chosen timbre (piano / guitar / drums / flute / trumpet).
+- `capstoneInstrument: string | null` — chosen timbre. Engine supports piano / drums / guitar / flute / trumpet (`useAudio.ts:232-305`), surfaced as Keyboard / Drums / Guitar / Winds / Brass (`lessons.ts:113-119`).
 - `phraseA: { note, velocity, time }[]` — recorded notes for phrase A. `time` is ms offset from `recordStartRef`.
 - `phraseB: { note, velocity, time }[]` — same for phrase B.
-- `compositionForm: ("A" | "B")[]` — sequence of section labels (max 6 entries, `:518`).
+- `compositionForm: ("A" | "B")[]` — sequence of section labels (max 6 entries, gated at `:518`).
 - `compositionPlaying: boolean` — playback flag.
 
 Playback (`:528-559`) walks `compositionForm`, plays each section's phrase with the chosen instrument timbre, gapped by 600ms between sections.
@@ -199,7 +199,7 @@ All keys are client-only. No server.
 | --- | --- | --- | --- |
 | `notely_student` | `{ name: string, avatar: string, instrument: string }` | `Onboarding.tsx:65-68` | Profile from onboarding wizard |
 | `notely_progress` | `Record<lessonId, { completed: boolean, stars: number }>` | `Lesson.tsx:1045-1047` | Drives SkillTree unlock + Dashboard "current" badge |
-| `notely_session` | `{ lastMoodDate?: "YYYY-MM-DD", mood?: "energetic"\|"calm"\|"tired", lastSessionSummary?: { lessonName, notesPlayed, dismissed } }` | `Lesson.tsx:1041-1043`, `Dashboard.tsx:90-93` (and `MoodCheck` component, unread) | Mood check daily prompt + post-lesson recap banner |
+| `notely_session` | `{ lastMoodDate?: "YYYY-MM-DD", mood?: "energetic"\|"calm"\|"tired", lastSessionSummary?: { lessonName, notesPlayed, dismissed } }` | `MoodCheck.tsx:26-29` (mood + date), `Lesson.tsx:1041-1043` (recap), `Dashboard.tsx:90-93` (recap dismissal) | Mood check daily prompt + post-lesson recap banner |
 | `notely_reflections` | `Array<{ lessonId, stepIndex, answer, timestamp }>` | `Lesson.tsx:564-566`, `:917-919` | Per-lesson A/B reflection answers — append-only log |
 | `notely_best_moments` | `Array<{ id, label, emoji, savedAt }>` | `Lesson.tsx:1062-1064` | **Metadata stubs only — no audio data.** Display on a "wall" via `BestMomentsWall` component. |
 
@@ -323,7 +323,7 @@ Testable assertions tied to v1 features. *(unverified)* flag means the criterion
 
 ### AC-1 Lessons
 - **AC-1.1** All 10 lessons load via `/lesson/1` … `/lesson/10`. **Verified** by route definition (`App.tsx:28`) and lesson map (`lessons.ts:903-913`).
-- **AC-1.2** Visiting `/lesson/{nonexistent}` falls back to lesson 1 without crashing. *(unverified)*
+- **AC-1.2** Visiting `/lesson/{nonexistent}` falls back to lesson 1 without crashing. **Verified by code** (`Lesson.tsx:38`: `LESSONS[lessonId] ?? LESSONS["1"]`); no runtime test for the route round-trip.
 - **AC-1.3** Step types are exactly `watch | listen | play | quiz | explore` (closed set). **Verified** (`lessons.ts:12`).
 - **AC-1.4** Every lesson ends in `playCelebration` and writes `notely_progress[id]`. **Verified** (`Lesson.tsx:1040-1047`).
 
@@ -343,8 +343,8 @@ Testable assertions tied to v1 features. *(unverified)* flag means the criterion
 - **AC-4.3** Absent or corrupted localStorage keys default safely (no crash). *(unverified — relies on `JSON.parse(... || "{}")` pattern; malformed JSON would throw)*
 
 ### AC-5 Feedback
-- **AC-5.1** Wrong quiz answers wobble + play `playErrorSound`; never display "wrong"/red-X/score loss. **Verified** (`Lesson.tsx:905-912` shows error-on-wrong, no penalty score state in component).
-- **AC-5.2** Correct answers play `playSuccessChime`. **Verified** (`Lesson.tsx:910`).
+- **AC-5.1** Wrong quiz answers play `playErrorSound` and apply a coral-bordered visual state (`bg #FFF3E0`, border `#FF5C35`) with a ✗ icon — never the word "wrong," never red, never a score deduction. **Verified** (handler: `Lesson.tsx:905-911`; render: `:2801-2831`). The README's "wobble" animation language is aspirational — no wobble/shake animation is wired to quiz wrong-answers in v1; the only `notely-shake` use is for dynamic-scene mismatches in Lesson 8 (`Lesson.tsx:1627-1628`).
+- **AC-5.2** Correct answers play `playSuccessChime` and apply a mint-bordered visual state (`bg #E8F5E9`, border `#3ECFA4`) with a ✓ icon. **Verified** (`Lesson.tsx:910`, `:2801`, `:2831`).
 
 ---
 
@@ -371,7 +371,7 @@ Confirmed direction; no committed dates.
 - Intervals (2nds, 3rds, 5ths) by ear.
 - Major triads first, then minor.
 - Basic staff notation — introduced *after* fluent play (Orff order preserved).
-- More songs in Practice Room: "Twinkle," "Mary Had a Little Lamb," "Ode to Joy."
+- More songs in Practice Room. Currently three (`Practice.tsx:39-43`): "Mary Had a Little Lamb," "Hot Cross Buns," "Twinkle Twinkle." Candidate additions: "Ode to Joy," "Frère Jacques," "Old MacDonald."
 - Additional capstone instruments beyond piano (the recorder timbre map already supports this — `INSTRUMENT_CARDS` at `lessons.ts:113-119`).
 
 **Constraint:** new lessons slot in by *concept difficulty*, not chronologically appended.
@@ -519,5 +519,6 @@ Stated assumptions about the user, device, and context. If any is wrong for a gi
 
 ## Change log
 
+- **0.3 (2026-05-11)** — Second audit pass. Corrected AC-5.1 — "wobble" animation is aspirational README copy, not implemented; wrong answers show a coral border + ✗ icon + error chime. Tightened §5 Constructivism row accordingly. Added MoodCheck.tsx as the actual writer of `notely_session.mood` (previously marked "unread"). Verified `/lesson/{nonexistent}` fallback to lesson 1 (AC-1.2). Fixed §11 R-1 — Twinkle Twinkle and Mary Had a Little Lamb already ship in `Practice.tsx`; updated candidate-additions list. Tightened §6.5 capstone state range and called out engine vs. UI label mapping for instruments.
 - **0.2 (2026-05-11)** — Audit pass. Fixed §6.4 misattribution of `useComposition.ts`. Corrected localStorage inventory to 5 keys with verified shapes. Removed invented "Base64 recordings" claim. Fixed `playNote` signature. Added §6.4 Lesson 3 mechanic breakdown, §6.5 capstone state, §6.7 placeholder-data warning for Progress, §6.8 reflections, §6.9 mood + session recap. Added §13 Risks, §14 Competitive landscape, §15 Assumptions. Converted §9 to verifiable acceptance criteria. Added Change log, version metadata, solfege sleeper-risk callout.
 - **0.1 (initial draft)** — superseded.
